@@ -23,7 +23,9 @@ class Fake:
         body = json.loads(request.content)
         self.bodies.append(body)
         if self.jitter:
-            await asyncio.sleep(random.random() * self.jitter)
+            # A floor as well as a spread: an answer that lands in microseconds closes the
+            # in-flight window before the rest of the input has even been queued.
+            await asyncio.sleep(self.jitter * (0.5 + random.random() / 2))
         if self.script and (status := self.script.pop(0)) != 200:
             return httpx.Response(status, json={"error": {"message": f"scripted {status}", "code": status}})
         if "POISON" in body["state"]:
