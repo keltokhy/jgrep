@@ -4,7 +4,7 @@ Jev can be reached through TypeSafe's own API or through OpenRouter. Both take o
 number of questions per call and return one typed answer per question. Answers are cached per
 (model, state, question), so packing questions into a call and rerunning a command are both cheap.
 
-This file is shared verbatim between the jgrep and jlink repositories.
+The jlink repository uses the same client design.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import os
 import random
 import sqlite3
@@ -157,6 +158,7 @@ class Jev:
         if self.cache:
             for qid, k in keys.items():
                 if (hit := self.cache.get(k)) is not None:
+                    _validate_answer(qid, questions[qid], hit)
                     answers[qid] = hit
         misses = {qid: q for qid, q in questions.items() if qid not in answers}
         if not misses:
@@ -186,7 +188,13 @@ class Jev:
                 break
             t0 = time.perf_counter()
             try:
-                r = await self.http.post(self.url, json=body, timeout=remaining)
+                # HTTPX limits each network wait, not the whole response. Bound the
+                # complete request, including a body that keeps arriving in small chunks.
+                r = await asyncio.wait_for(
+                    self.http.post(self.url, json=body, timeout=remaining), timeout=remaining)
+            except asyncio.TimeoutError:
+                last = "deadline exceeded"
+                break
             except httpx.TransportError as e:
                 last = type(e).__name__
             else:
@@ -214,15 +222,31 @@ class Jev:
         self.meter.cost += tokens * PRICE_PER_MTOK / 1e6 if cost is None else cost
         self.meter.latencies.append(seconds)
         self.meter.model = data.get("model") or self.model
+        answers = data["answers"]
+        if not isinstance(answers, dict):
+            raise JevError("invalid answers returned: expected an object")
         out = {}
         for qid, q in questions.items():
-            if qid not in data["answers"]:
+            if qid not in answers:
                 raise JevError(f"no answer returned for question {qid!r}")
+            _validate_answer(qid, q, answers[qid])
             k = Cache.key(self.model, state, q)
-            out[k] = data["answers"][qid]
-            if self.cache:
-                self.cache.put(k, out[k])
+            out[k] = answers[qid]
+        # Validate the entire response before storing any part of it.
+        if self.cache:
+            for k, answer in out.items():
+                self.cache.put(k, answer)
         return out
+
+
+def _validate_answer(qid: str, question: dict, answer) -> None:
+    if not isinstance(answer, dict):
+        raise JevError(f"invalid answer returned for question {qid!r}: expected an object")
+    if question.get("type") == "noul":
+        p = answer.get("noul")
+        if (isinstance(p, bool) or not isinstance(p, (int, float))
+                or not math.isfinite(p) or not 0 <= p <= 1):
+            raise JevError(f"invalid answer returned for question {qid!r}: noul must be a probability from 0 to 1")
 
 
 def _json(r: httpx.Response) -> dict:

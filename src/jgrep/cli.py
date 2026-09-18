@@ -71,7 +71,7 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("-H", "--with-filename", action="store_true", help="prefix each line with its file name")
     ap.add_argument("--no-filename", action="store_true", help="never print file names")
     ap.add_argument("-c", "--count", action="store_true", help="print only a count of matching lines")
-    ap.add_argument("-m", "--max-count", type=int, metavar="NUM", help="stop after NUM matches")
+    ap.add_argument("-m", "--max-count", type=int, metavar="NUM", help="stop each input file after NUM matches")
     ap.add_argument("-q", "--quiet", action="store_true", help="print nothing; exit 0 at the first match")
     ap.add_argument("--json", action="store_true", help="print one JSON object per match")
     ap.add_argument("--para", action="store_true", help="judge paragraphs (separated by blank lines), not lines")
@@ -195,23 +195,67 @@ def render(rec: Record, p: float, ps: list[float], args, show_file: bool) -> str
 
 
 async def run(args, descriptions: list[str], files: list[str], jev: Jev, out, err) -> int:
+    show_file = not args.no_filename and (args.with_filename or len(files) > 1)
+    # A limited file must be able to stop its reader and outstanding requests
+    # independently of the next file, including when its reader is a live pipe.
+    groups = [[f] for f in (files or ["-"])] if args.max_count is not None else [files]
+    seen = matched = errors = 0
+    try:
+        for group in groups:
+            result = await scan(args, descriptions, group, jev, out, err, show_file)
+            seen += result["seen"]
+            matched += result["matched"]
+            errors += result["errors"] + bool(result["fatal"]) + result["over_budget"]
+            if result["fatal"] or result["over_budget"] or (args.quiet and matched) or result["broken_pipe"]:
+                break
+    finally:
+        await jev.close()
+    args.summary = f"{seen:,} records, {matched:,} matched; {jev.meter.summary()}"
+    if args.quiet and matched:
+        return 0
+    return 2 if errors else 0 if matched else 1
+
+
+def print_counts(args, files: list[str], counts: dict[str, int], out, show_file: bool) -> None:
+    if args.count and not args.quiet:
+        names = [STDIN if f == "-" else f for f in (files or ["-"])]
+        for name in names:
+            print(f"{name}:{counts.get(name, 0)}" if show_file else counts.get(name, 0), file=out)
+        out.flush()
+
+
+async def scan(args, descriptions: list[str], files: list[str], jev: Jev, out, err, show_file: bool) -> dict:
     loop = asyncio.get_running_loop()
     questions = {f"d{i}": question(d, bool(args.context)) for i, d in enumerate(descriptions)}
-    show_file = not args.no_filename and (args.with_filename or len(files) > 1)
     queue: asyncio.Queue = asyncio.Queue(maxsize=args.concurrency)
     sem = asyncio.Semaphore(args.concurrency)
     stop, halt = threading.Event(), asyncio.Event()
     finished: dict[int, tuple] = {}
     tasks: set[asyncio.Task] = set()
     counts: dict[str, int] = {}
-    s = {"next": 0, "seen": 0, "matched": 0, "errors": 0, "fatal": None, "over_budget": False}
+    s = {"next": 0, "seen": 0, "matched": 0, "errors": 0, "fatal": None,
+         "over_budget": False, "broken_pipe": False}
+    feeding = {"put": None}
 
     def feed() -> None:
+        def enqueue(item) -> bool:
+            if stop.is_set():
+                return False
+            put = asyncio.run_coroutine_threadsafe(queue.put(item), loop)
+            feeding["put"] = put
+            # Stop may race with creation of the pending put. Either the consumer
+            # or this check must cancel it so a full queue cannot strand a reader.
+            if stop.is_set():
+                put.cancel()
+            put.result()
+            return not stop.is_set()
+
         try:
             stream = records(files, args, stop)
             for item in contextual(stream, args.context) if args.context else stream:
-                asyncio.run_coroutine_threadsafe(queue.put(item), loop).result()
-            asyncio.run_coroutine_threadsafe(queue.put(None), loop).result()
+                if not enqueue(item):
+                    return
+            enqueue(None)
         except BaseException:  # the loop is gone because the run halted early
             pass
 
@@ -233,6 +277,7 @@ async def run(args, descriptions: list[str], files: list[str], jev: Jev, out, er
                 out.write(render(rec, p, ps, args, show_file) + "\n")
                 out.flush()
             except BrokenPipeError:
+                s["broken_pipe"] = True
                 halt.set()
         if args.quiet or (args.max_count and s["matched"] >= args.max_count):
             halt.set()
@@ -258,11 +303,21 @@ async def run(args, descriptions: list[str], files: list[str], jev: Jev, out, er
         except JevFatal as e:
             s["fatal"] = s["fatal"] or str(e)
             return halt.set()
+        except Exception as e:
+            # Every record needs a result so one client/cache failure cannot leave
+            # a permanent gap in ordered output or masquerade as "no matches".
+            result = (None, None, f"{type(e).__name__}: {e}")
         finally:
             sem.release()
         deliver(rec, result)
         if args.budget and jev.meter.cost >= args.budget and not s["over_budget"]:
             s["over_budget"] = True
+            halt.set()
+
+    def completed(task: asyncio.Task) -> None:
+        tasks.discard(task)
+        if not task.cancelled() and (error := task.exception()) is not None:
+            s["fatal"] = s["fatal"] or f"{type(error).__name__}: {error}"
             halt.set()
 
     threading.Thread(target=feed, daemon=True).start()
@@ -284,21 +339,24 @@ async def run(args, descriptions: list[str], files: list[str], jev: Jev, out, er
             break
         task = asyncio.create_task(judge(item))
         tasks.add(task)
-        task.add_done_callback(tasks.discard)
+        task.add_done_callback(completed)
 
     stop.set()
-    halted.cancel()
+    if feeding["put"] is not None:
+        feeding["put"].cancel()
+    # EOF only stops the reader. Matches, budget limits and fatal errors can
+    # still arrive while draining requests, and must interrupt that drain.
+    pending = list(tasks)
+    drained = asyncio.gather(*pending, return_exceptions=True)
+    await asyncio.wait({drained, halted}, return_when=asyncio.FIRST_COMPLETED)
     if halt.is_set():
-        for t in list(tasks):
+        for t in pending:
             t.cancel()
-    await asyncio.gather(*tasks, return_exceptions=True)
-    await jev.close()
+    await drained
+    halted.cancel()
+    await asyncio.gather(halted, return_exceptions=True)
 
-    if args.count and not args.quiet:
-        names = [STDIN if f == "-" else f for f in (files or ["-"])]
-        for name in names:
-            print(f"{name}:{counts.get(name, 0)}" if show_file else counts.get(name, 0), file=out)
-        out.flush()
+    print_counts(args, files, counts, out, show_file)
     if s["errors"] > MAX_ERRORS_SHOWN:
         print(f"jgrep: and {s['errors'] - MAX_ERRORS_SHOWN:,} more errors", file=err)
     if s["fatal"]:
@@ -306,10 +364,7 @@ async def run(args, descriptions: list[str], files: list[str], jev: Jev, out, er
     if s["over_budget"]:
         print(f"jgrep: stopped at the ${args.budget:.2f} budget after {s['seen']:,} records; raise it with --budget",
               file=err)
-    args.summary = f"{s['seen']:,} records, {s['matched']:,} matched; {jev.meter.summary()}"
-    if s["fatal"] or s["over_budget"] or s["errors"]:
-        return 0 if args.quiet and s["matched"] else 2
-    return 0 if s["matched"] else 1
+    return s
 
 
 def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -> int:
@@ -319,6 +374,12 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
     descriptions, files = (args.descriptions, args.args) if args.descriptions else (args.args[:1], args.args[1:])
     if not descriptions:
         ap.print_usage(err)
+        return 2
+    if args.concurrency < 1:
+        print("jgrep: -j takes 1 or more concurrent calls", file=err)
+        return 2
+    if args.max_count is not None and args.max_count < 0:
+        print("jgrep: -m takes 0 or more matches per file", file=err)
         return 2
     if args.budget is None:
         try:
@@ -335,6 +396,12 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
     if args.whole and args.context:
         print("jgrep: --whole and -C cannot be combined; a whole file has nothing around it", file=err)
         return 2
+    if args.max_count == 0:
+        show_file = not args.no_filename and (args.with_filename or len(files) > 1)
+        print_counts(args, files, {}, out, show_file)
+        if args.stats or (args.stats is None and err.isatty()):
+            print("jgrep: 0 records, 0 matched; 0 calls, 0 cached; 0.0s", file=err)
+        return 1
     try:
         backend, key = resolve_backend(args.api)
     except JevFatal as e:
