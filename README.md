@@ -28,7 +28,8 @@ time for three descriptions at once.
 uv tool install jev-grep        # the command it installs is jgrep
 ```
 
-jgrep needs a key for one of two APIs. With keys for both, it uses TypeSafe's.
+jgrep needs a key for one of two APIs, or for a gateway of your own (below). With keys for
+several, it uses TypeSafe's.
 
 | API | Key | Get one |
 |---|---|---|
@@ -37,6 +38,19 @@ jgrep needs a key for one of two APIs. With keys for both, it uses TypeSafe's.
 
 Set the environment variable, or put the key in `~/.config/jev/typesafe.key` or
 `~/.config/jev/openrouter.key`. Force a choice with `--api` or `JEV_API`.
+
+Behind an LLM gateway that serves System One (LiteLLM, Ramp Router, a corporate proxy), point
+jgrep at it with `--api gateway`. The URL is the full endpoint and the key is the gateway's own:
+
+```bash
+export JEV_GATEWAY_URL=https://gateway.example.com/v1/systemone
+export JEV_GATEWAY_API_KEY=...       # or ~/.config/jev/gateway.key and gateway.url
+jgrep "a stack trace" build.log      # picked automatically when it is the only key set
+```
+
+Requests are sent as they would be to TypeSafe, so the gateway sees the same `{model, state,
+questions}` body. Ask for a model the gateway knows with `--model`; the default is `jev-latest`.
+`--stats` prices gateway calls at TypeSafe's list price, which may not be what the gateway bills.
 
 ## Use
 
