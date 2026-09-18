@@ -25,7 +25,7 @@ time for three descriptions at once.
 ## Install
 
 ```bash
-uv tool install git+https://github.com/keltokhy/jgrep
+uv tool install jev-grep        # the command it installs is jgrep
 ```
 
 jgrep needs a key for one of two APIs. With keys for both, it uses TypeSafe's.
