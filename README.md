@@ -57,7 +57,8 @@ jgrep -q "a stack trace" build.log && notify "build broke"
 |---|---|
 | `-p P` | Match when the probability is at least P. Default 0.5. |
 | `-o` | Put the probability in a first, tab-separated column. |
-| `-v`, `-c`, `-n`, `-H`, `-m NUM`, `-q` | As in grep. |
+| `-v`, `-c`, `-n`, `-H`, `-q` | As in grep. |
+| `-m NUM` | Stop each input file after NUM matches; `-m 0` reads no input and makes no API calls. |
 | `-e DESC` | Another description. All of them go in one call per line. A line matches if any fits, or all with `--all`. |
 | `--para`, `--whole` | Judge paragraphs or whole files in place of lines. |
 | `-C N` | Show Jev the N lines either side of each line. Still one decision per line, and still only the matching line is printed. |
@@ -161,13 +162,13 @@ Things to know:
 ## Development
 
 ```bash
-uv sync && uv run pytest        # 31 tests against a fake API; no key, no network
+uv sync && uv run pytest        # offline tests using a fake API and local HTTP server; no key
 uv run python bench/phrasing.py # live; costs about a cent
 uv run python bench/accuracy.py prepare && uv run python bench/accuracy.py spam   # also: news, llm
 ```
 
 `src/jgrep/core.py` is the client: two backends, retries inside a time budget, the cache,
-in-flight deduplication and the cost meter. It is shared verbatim with
+in-flight deduplication and the cost meter. It shares its design with
 [jlink](https://github.com/keltokhy/jlink), which links records across datasets with the same
 model.
 

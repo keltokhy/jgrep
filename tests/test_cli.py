@@ -4,11 +4,14 @@ import asyncio
 import io
 import json
 import random
+import threading
 
 import httpx
 import pytest
 
 from jgrep.cli import main
+from jgrep import cli as cli_module
+from jgrep.core import Cache, Jev
 
 WORDS = ["alpha", "beta", "gamma"]
 
@@ -304,3 +307,128 @@ def test_context_is_rejected_where_it_makes_no_sense(tmp_path):
     assert "-C takes 0 or more" in jgrep(["alpha", f, "-C", "-1"])[2]
     assert jgrep(["alpha", f, "-C", "1", "--whole"])[0] == 2
     assert "--whole and -C" in jgrep(["alpha", f, "-C", "1", "--whole"])[2]
+
+
+@pytest.mark.parametrize("answer", [None, {}, {"noul": None}, {"noul": "bad"},
+                                   {"noul": float("nan")}, {"noul": float("inf")},
+                                   {"noul": -0.1}, {"noul": 1.1}, {"noul": True}])
+def test_malformed_answer_reports_error_and_preserves_later_matches(tmp_path, answer):
+    f = write(tmp_path, "a.txt", "bad answer\nalpha later\n")
+    good = Fake(jitter=0.01)
+
+    async def handler(request):
+        if json.loads(request.content)["state"] == "bad answer":
+            await asyncio.sleep(0.02)
+            return httpx.Response(200, content=json.dumps({"answers": {"d0": answer}}))
+        return await good(request)
+
+    code, out, err, _ = jgrep(["alpha", f], fake=handler)
+    assert code == 2
+    assert out == "alpha later\n"
+    assert f"{f}:1:" in err and "answer" in err
+    cache = Cache()
+    key = cache.key("~typesafe/jev-latest", "bad answer", cli_module.question("alpha"))
+    assert cache.get(key) is None
+    cache.db.close()
+
+
+def test_malformed_cached_answer_does_not_block_later_matches(tmp_path):
+    cache = Cache()
+    key = cache.key("~typesafe/jev-latest", "bad answer", cli_module.question("alpha"))
+    cache.put(key, {})
+    cache.db.close()
+    f = write(tmp_path, "a.txt", "bad answer\nalpha later\n")
+    code, out, err, _ = jgrep(["alpha", f])
+    assert code == 2 and out == "alpha later\n"
+    assert f"{f}:1:" in err
+
+
+def test_unexpected_judge_exception_is_reported(monkeypatch, tmp_path):
+    original = Jev.ask
+
+    async def broken(self, state, questions):
+        if state == "bad answer":
+            raise RuntimeError("unexpected client failure")
+        return await original(self, state, questions)
+
+    monkeypatch.setattr(Jev, "ask", broken)
+    f = write(tmp_path, "a.txt", "bad answer\nalpha later\n")
+    code, out, err, _ = jgrep(["alpha", f])
+    assert code == 2 and out == "alpha later\n"
+    assert "unexpected client failure" in err
+
+
+@pytest.mark.parametrize("flags, expected", [(["-q"], 0), (["--budget", "0.005"], 2), (["-m", "1"], 0)])
+def test_stop_after_eof_cancels_pending_requests(monkeypatch, tmp_path, flags, expected):
+    eof = threading.Event()
+    original = cli_module.records
+
+    def tracked(*args, **kwargs):
+        yield from original(*args, **kwargs)
+        eof.set()
+
+    monkeypatch.setattr(cli_module, "records", tracked)
+    cancelled, completed = [], []
+    fake = Fake()
+
+    async def handler(request):
+        state = json.loads(request.content)["state"]
+        if state == "alpha fast":
+            while not eof.is_set():
+                await asyncio.sleep(0.001)
+            await asyncio.sleep(0.02)  # let the consumer receive EOF before this match
+        else:
+            try:
+                await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                cancelled.append(state)
+                raise
+            completed.append(state)
+        return await fake(request)
+
+    f = write(tmp_path, "a.txt", "alpha fast\nalpha slow\n")
+    code, _, _, _ = jgrep(["alpha", f, "-j", "2", "--no-cache", *flags], fake=handler)
+    assert code == expected
+    assert cancelled == ["alpha slow"] and completed == []
+
+
+@pytest.mark.parametrize("extra", [[], ["--unordered"], ["-C", "1"]])
+def test_max_count_is_per_input_file(tmp_path, extra):
+    a = write(tmp_path, "a.txt", "alpha first\n" * 100)
+    b = write(tmp_path, "b.txt", "alpha second\n" * 100)
+    code, out, _, fake = jgrep(["alpha", a, b, "-m", "1", "-j", "2", *extra])
+    assert code == 0 and out == f"{a}:alpha first\n{b}:alpha second\n"
+    assert len(fake.bodies) < 20
+
+
+def test_max_count_handles_repeated_filenames_and_counts(tmp_path):
+    a = write(tmp_path, "a.txt", "alpha first\nalpha second\n")
+    assert jgrep(["alpha", a, a, "-m", "1", "-c"])[1] == f"{a}:1\n{a}:1\n"
+
+
+@pytest.mark.parametrize("flags, output", [([], ""), (["-c"], "0\n"), (["-c", "-q"], "")])
+def test_max_count_zero_needs_no_key_input_or_requests(monkeypatch, flags, output):
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+
+    def no_input(*args):
+        pytest.fail("-m 0 must not read input")
+
+    monkeypatch.setattr(cli_module, "records", no_input)
+    code, out, err, fake = jgrep(["alpha", "-m", "0", *flags])
+    assert (code, out, err) == (1, output, "") and not fake.bodies
+
+
+def test_max_count_zero_prints_zero_for_each_file(tmp_path):
+    a, b = str(tmp_path / "a"), str(tmp_path / "b")
+    code, out, _, fake = jgrep(["alpha", a, b, "-m", "0", "-c"])
+    assert code == 1 and out == f"{a}:0\n{b}:0\n" and not fake.bodies
+
+
+@pytest.mark.parametrize("flag,value", [("-j", "0"), ("-j", "-1"), ("-m", "-1")])
+def test_invalid_concurrency_and_match_limits_fail_before_setup(monkeypatch, flag, value):
+    def no_backend(*args):
+        pytest.fail("invalid limits must fail before creating a client")
+
+    monkeypatch.setattr(cli_module, "resolve_backend", no_backend)
+    code, _, err, fake = jgrep(["alpha", flag, value])
+    assert code == 2 and flag in err and not fake.bodies
