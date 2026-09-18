@@ -42,22 +42,39 @@ class Backend:
     url: str
     model: str
     key_env: str
+    # Set for a backend whose URL is not fixed: the variable (or a `<name>.url` config file) that names it.
+    url_env: str | None = None
 
     @property
     def key_file(self) -> Path:
         return config_dir() / f"{self.name}.key"
+
+    @property
+    def url_file(self) -> Path:
+        return config_dir() / f"{self.name}.url"
 
     def key(self) -> str | None:
         if os.environ.get(self.key_env):
             return os.environ[self.key_env].strip()
         return self.key_file.read_text().strip() if self.key_file.exists() else None
 
+    def configured_url(self) -> str | None:
+        """The URL to call, or None for a gateway whose URL was never given."""
+        if self.url:
+            return self.url
+        if self.url_env and os.environ.get(self.url_env):
+            return os.environ[self.url_env].strip()
+        return self.url_file.read_text().strip() if self.url_file.exists() else None
 
-# Order matters: with keys for both, TypeSafe's own API is used.
+
+# Order matters: with keys for several, the first one here is used.
 BACKENDS = {
     "typesafe": Backend("typesafe", "https://api.typesafe.ai/v1/systemone", "jev-latest", "TYPESAFE_API_KEY"),
     "openrouter": Backend("openrouter", "https://openrouter.ai/api/alpha/decisions", "~typesafe/jev-latest",
                           "OPENROUTER_API_KEY"),
+    # Anything that speaks System One and takes its own key: an LLM gateway such as LiteLLM or Ramp Router,
+    # a corporate proxy, a mock. The URL is the full endpoint, for example https://gateway.example.com/v1/systemone.
+    "gateway": Backend("gateway", "", "jev-latest", "JEV_GATEWAY_API_KEY", url_env="JEV_GATEWAY_URL"),
 }
 
 
@@ -78,9 +95,12 @@ def resolve_backend(name: str | None = None) -> tuple[Backend, str]:
         backend = BACKENDS[name]
         if not (key := backend.key()):
             raise JevFatal(f"no key for {name}. Set {backend.key_env} or put the key in {backend.key_file}")
+        if backend.url_env and not backend.configured_url() and not os.environ.get("JEV_URL"):
+            raise JevFatal(f"no URL for {name}. Set {backend.url_env} to the full System One endpoint "
+                           f"(for example https://gateway.example.com/v1/systemone) or put it in {backend.url_file}")
         return backend, key
     for backend in BACKENDS.values():
-        if key := backend.key():
+        if (key := backend.key()) and (not backend.url_env or backend.configured_url()):
             return backend, key
     options = " or ".join(b.key_env for b in BACKENDS.values())
     raise JevFatal(f"no API key. Set {options}, or put a key in {config_dir()}/<api>.key")
@@ -138,7 +158,7 @@ class Jev:
                  transport=None):
         self.backend = BACKENDS[backend] if isinstance(backend, str) else backend
         self.model = model or os.environ.get("JEV_MODEL") or self.backend.model
-        self.url = os.environ.get("JEV_URL") or self.backend.url
+        self.url = os.environ.get("JEV_URL") or self.backend.configured_url() or self.backend.url
         self.timeout, self.attempts, self.cache = timeout, attempts, cache
         self.meter = Meter()
         self._flights: dict[str, asyncio.Task] = {}
