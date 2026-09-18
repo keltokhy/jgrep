@@ -106,6 +106,9 @@ Things to know:
   [documents](https://docs.typesafe.ai/model-jaggedness/jev-1.13) weak spots: counting,
   comparing numbers or dates, double negatives, and long inputs full of irrelevant detail.
 - Each line is judged alone. jgrep does not show Jev the lines around it.
+- Jev is close to deterministic, not exactly so. Asking 150 questions three times without the
+  cache gave identical probabilities for 128; the rest moved by up to 0.03 and no decision
+  flipped. The cache makes reruns exact.
 - The default model ID is an alias for the latest Jev. For results that must reproduce, pin
   one with `--model` (for example `typesafe/jev-1.13` on OpenRouter).
 - Text in the input can try to steer the answer. Do not use jgrep as a security boundary.
