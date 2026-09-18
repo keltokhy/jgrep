@@ -1,12 +1,15 @@
 [project]
 name = "jev-grep"
-version = "0.1.0"
+version = "0.1.1"
 description = "grep by meaning: filter lines with a plain-English description, judged by TypeSafe's Jev model"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Khaled Eltokhy" }]
 requires-python = ">=3.10"
-dependencies = ["httpx>=0.27"]
+dependencies = [
+    "httpx>=0.27",
+    "pathspec>=0.12",
+]
 keywords = ["grep", "cli", "semantic search", "jev", "typesafe", "openrouter"]
 classifiers = [
     "Environment :: Console",

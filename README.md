@@ -26,6 +26,7 @@ time for three descriptions at once.
 
 ```bash
 uv tool install jev-grep        # the command it installs is jgrep
+uv tool upgrade jev-grep        # upgrade an existing installation
 ```
 
 jgrep needs a key for one of two APIs, or for a gateway of your own (below). With keys for
@@ -65,6 +66,10 @@ jgrep -C 2 "a line in the middle of a stack trace" app.log   # judged with its n
 jgrep --para "describes an identification strategy" paper.txt
 jgrep --whole "uses a bunching estimator" abstracts/*.txt     # prints matching file names
 jgrep -q "a stack trace" build.log && notify "build broke"
+jgrep --jsonl --field message "a payment failed" events.jsonl
+jgrep --csv --field abstract "uses a natural experiment" papers.csv
+jgrep -rl --glob '*.txt' "mentions a rent increase" notes/
+jgrep --chunks 8000 --json "describes an identification strategy" paper.txt
 ```
 
 | Option | Meaning |
@@ -73,10 +78,17 @@ jgrep -q "a stack trace" build.log && notify "build broke"
 | `-o` | Put the probability in a first, tab-separated column. |
 | `-v`, `-c`, `-n`, `-H`, `-q` | As in grep. |
 | `-m NUM` | Stop each input file after NUM matches; `-m 0` reads no input and makes no API calls. |
+| `-l` | Print a file name at its first matching record, then continue to the next file. |
+| `-r` | Search directories recursively; defaults to the current directory if no paths are given. |
+| `--glob PATTERN`, `--exclude PATTERN` | Include or exclude files; both can be repeated. |
+| `--no-ignore` | During recursive search, disregard `.gitignore` and `.ignore`. |
 | `-e DESC` | Another description. All of them go in one call per line. A line matches if any fits, or all with `--all`. |
 | `--para`, `--whole` | Judge paragraphs or whole files in place of lines. |
 | `-C N` | Show Jev the N lines either side of each line. Still one decision per line, and still only the matching line is printed. |
 | `--json` | One JSON object per match, with the probability. |
+| `--jsonl --field NAME`, `--csv --field NAME` | Judge one field and return the complete original record. |
+| `--chunks N`, `--overlap N` | Search full text files in overlapping passages, with source locations. |
+| `--max-chars N` | Maximum characters judged per ordinary record; default 8000. Truncation produces a warning. |
 | `--unordered` | Print matches as answers arrive. |
 | `-j N` | Calls in flight. Default 32. |
 | `--budget DOLLARS` | Stop once this much is spent. Default 1.00, or `$JGREP_BUDGET`; 0 for no limit. |
@@ -84,6 +96,55 @@ jgrep -q "a stack trace" build.log && notify "build broke"
 | `--no-cache`, `--api`, `--model`, `--stats` | See `jgrep --help`. |
 
 Exit status follows grep: 0 if anything matched, 1 if nothing did, 2 on error.
+
+## Structured records
+
+`--jsonl` expects one JSON object per line. `--csv` expects a header with unique column names
+and supports quoted commas and multiline cells. Both require `--field NAME`. Only that field
+is sent for judgment; `-C` also supplies that field from neighboring records. Matching output
+retains the complete JSON line or CSV row, including fields that were not judged. CSV output
+includes the original header once for each input file with matches. Record terminators are
+written as newlines, while quoting and embedded newlines are preserved.
+
+JSON field names can be dotted paths, such as `event.message` or `events.0.message`. An exact
+key takes precedence over a dotted path. Strings are judged directly, null is treated as empty
+text, and other values are represented as JSON. Missing fields, invalid JSON, and malformed
+CSV rows are reported as errors; valid later records are still processed when parsing can
+continue. Blank JSONL lines are skipped.
+
+Structured output omits automatic filename prefixes so it can be read as JSONL or CSV. Use
+`-H` or `-n` only when you want those prefixes. `--json` instead emits a match object containing
+`file`, the starting physical `line`, `p`, `text` (the original record), `field`, and `record`
+(the parsed object, with CSV column values kept as strings). For several CSV files with
+different headers, this JSON output is easier to combine. `-c` counts matching records, and
+`-l` lists matching files without headers or rows.
+
+## Directory and document search
+
+`-r` visits files in sorted order, respecting `.gitignore` and `.ignore` in each directory and
+parent ignore files inside a Git repository. It skips symlinks, `.git` directories, and files
+with a NUL byte in the initial binary check. `--glob '*.txt'` selects names anywhere below the
+search root; patterns can also match relative paths. `--exclude` uses gitignore patterns.
+`--no-ignore` disables ignore files but still honors explicit exclusions. Explicit file
+arguments bypass ignore files; include/exclude filters still apply. Use `-l` when only the
+matching paths are needed.
+
+Ordinary lines, paragraphs, selected fields, and `--whole` judgments are limited to the first
+8000 characters by default. jgrep reports when this truncates a record or its context. Raise
+`--max-chars` to change that limit, or use `--chunks N` to search the entire text file a passage
+at a time. Chunk size replaces the ordinary character limit. Overlap defaults to the smaller
+of 200 characters and one quarter of the chunk size; `--overlap 0` disables it.
+
+Chunk output includes the starting line number. With `--json`, each matching passage also has
+`chunk` (one-based), `start` and `end` (zero-based character offsets, end exclusive), and
+`end_line` (the last source line containing characters from the passage). Offsets count decoded
+Unicode characters, not bytes. Passages can overlap and are judged independently; their scores
+are not combined into a document-wide probability. `-c` counts matching passages, while
+`--chunks 8000 -l` lists files with at least one matching passage.
+
+Chunk mode applies to plain text files and cannot be combined with structured input,
+`--para`, `--whole`, or `-C`; use overlap to retain text across passage boundaries. These modes
+read text, not PDF or Word formats.
 
 ## Cost
 
@@ -181,7 +242,8 @@ uv run python bench/phrasing.py # live; costs about a cent
 uv run python bench/accuracy.py prepare && uv run python bench/accuracy.py spam   # also: news, llm
 ```
 
-`src/jgrep/core.py` is the client: two backends, retries inside a time budget, the cache,
+`src/jgrep/inputs.py` handles file discovery, structured records, and document passages.
+`src/jgrep/core.py` is the client: API backends, retries inside a time budget, the cache,
 in-flight deduplication and the cost meter. It shares its design with
 [jlink](https://github.com/keltokhy/jlink), which links records across datasets with the same
 model.
