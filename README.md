@@ -47,6 +47,7 @@ jgrep -c "asks a question" *.txt                        # counts per file
 jgrep -p 0.9 "mentions a specific dollar amount" f.txt  # only confident matches
 jgrep -o -p 0 "the writer is losing sleep" f.txt | sort -rn   # rank every line
 jgrep -e "about economics" -e "about New York" f.txt    # either; add --all for both
+jgrep -C 2 "a line in the middle of a stack trace" app.log   # judged with its neighbours
 jgrep --para "describes an identification strategy" paper.txt
 jgrep --whole "uses a bunching estimator" abstracts/*.txt     # prints matching file names
 jgrep -q "a stack trace" build.log && notify "build broke"
@@ -59,6 +60,7 @@ jgrep -q "a stack trace" build.log && notify "build broke"
 | `-v`, `-c`, `-n`, `-H`, `-m NUM`, `-q` | As in grep. |
 | `-e DESC` | Another description. All of them go in one call per line. A line matches if any fits, or all with `--all`. |
 | `--para`, `--whole` | Judge paragraphs or whole files in place of lines. |
+| `-C N` | Show Jev the N lines either side of each line. Still one decision per line, and still only the matching line is printed. |
 | `--json` | One JSON object per match, with the probability. |
 | `--unordered` | Print matches as answers arrive. |
 | `-j N` | Calls in flight. Default 32. |
@@ -74,7 +76,9 @@ A call bills roughly 270 tokens of fixed overhead plus the line and the descript
 typical line costs about 300 tokens, or $0.0000126 at $0.042 per million. A million lines is
 about $13. Blank lines, repeated lines and anything answered before are free: answers are
 cached in `~/.cache/jev/answers.sqlite`, keyed on the exact model, line and description.
-Extra `-e` descriptions add about 27 tokens each and no time.
+Extra `-e` descriptions add about 27 tokens each and no time. `-C N` sends 2N+1 lines in
+place of one, so `-C 2` costs roughly three times as much per line once the fixed overhead is
+counted.
 
 jgrep stops at `--budget`, one dollar by default, so a stray `jgrep pattern huge.log` cannot
 run up a bill. A dollar is about 80,000 lines. A stopped run loses nothing: rerun with a higher
@@ -144,7 +148,9 @@ Things to know:
 - Jev answers the description you wrote, not the one you meant. TypeSafe
   [documents](https://docs.typesafe.ai/model-jaggedness/jev-1.13) weak spots: counting,
   comparing numbers or dates, double negatives, and long inputs full of irrelevant detail.
-- Each line is judged alone. jgrep does not show Jev the lines around it.
+- A line is judged alone unless you pass `-C N`, which shows Jev the N lines either side of
+  it. The decision is still per line, and the neighbours are not printed. Context does not
+  reach across files, and on `tail -f` a line cannot be judged until the N after it arrive.
 - Jev is close to deterministic, not exactly so. Asking 150 questions three times without the
   cache gave identical probabilities for 128; the rest moved by up to 0.03 and no decision
   flipped. The cache makes reruns exact.
@@ -155,7 +161,7 @@ Things to know:
 ## Development
 
 ```bash
-uv sync && uv run pytest        # 23 tests against a fake API; no key, no network
+uv sync && uv run pytest        # 31 tests against a fake API; no key, no network
 uv run python bench/phrasing.py # live; costs about a cent
 uv run python bench/accuracy.py prepare && uv run python bench/accuracy.py spam   # also: news, llm
 ```

@@ -23,7 +23,9 @@ class Fake:
         body = json.loads(request.content)
         self.bodies.append(body)
         if self.jitter:
-            await asyncio.sleep(random.random() * self.jitter)
+            # A floor as well as a spread: an answer that lands in microseconds closes the
+            # in-flight window before the rest of the input has even been queued.
+            await asyncio.sleep(self.jitter * (0.5 + random.random() / 2))
         if self.script and (status := self.script.pop(0)) != 200:
             return httpx.Response(status, json={"error": {"message": f"scripted {status}", "code": status}})
         if "POISON" in body["state"]:
@@ -239,3 +241,66 @@ def test_typesafe_error_bodies_are_readable(monkeypatch, tmp_path):
     out, err = io.StringIO(), io.StringIO()
     code = main(["alpha", write(tmp_path, "a.txt", "alpha\n")], transport=httpx.MockTransport(handler), out=out, err=err)
     assert code == 2 and "typesafe said 401: Cannot authenticate with the server." in err.getvalue()
+
+
+def test_context_shows_the_neighbouring_lines_to_the_judge(tmp_path):
+    f = write(tmp_path, "a.txt", "one\ntwo alpha\nthree\nfour\n")
+    assert jgrep(["alpha", f])[1] == "two alpha\n"                  # judged alone, only line 2 fits
+    assert jgrep(["alpha", f, "-C", "1"])[1] == "one\ntwo alpha\nthree\n"
+    assert jgrep(["alpha", f, "-C", "2"])[1] == "one\ntwo alpha\nthree\nfour\n"
+
+
+def test_context_marks_the_record_being_judged(tmp_path):
+    f = write(tmp_path, "a.txt", "one\ntwo\nthree\n")
+    code, out, _, fake = jgrep(["alpha", f, "-C", "1"])
+    assert {b["state"] for b in fake.bodies} == {"> one\n  two", "  one\n> two\n  three", "  two\n> three"}
+    assert '">" fit this description: "alpha"' in fake.bodies[0]["questions"]["d0"]["instructions"]
+
+
+def test_context_stops_at_the_edges_of_a_file(tmp_path):
+    a = write(tmp_path, "a.txt", "one\nlast alpha\n")
+    b = write(tmp_path, "b.txt", "first\nsecond\n")
+    code, out, _, fake = jgrep(["alpha", a, b, "-C", "1", "--no-filename"])
+    assert out == "one\nlast alpha\n"                               # b.txt cannot see a.txt's alpha
+    assert {body["state"] for body in fake.bodies} == {"> one\n  last alpha", "  one\n> last alpha",
+                                                       "> first\n  second", "  first\n> second"}
+
+
+def test_context_is_part_of_the_cache_key(tmp_path):
+    f = write(tmp_path, "a.txt", "one\ntwo\nthree\n")
+    assert len(jgrep(["alpha", f])[3].bodies) == 3
+    assert len(jgrep(["alpha", f])[3].bodies) == 0                  # the same run is free
+    assert len(jgrep(["alpha", f, "-C", "1"])[3].bodies) == 3       # a different window is not
+    assert len(jgrep(["alpha", f, "-C", "1"])[3].bodies) == 0
+    # a wider -C only re-asks the windows that actually widened: line 2 already saw the whole file
+    assert len(jgrep(["alpha", f, "-C", "2"])[3].bodies) == 2
+
+
+def test_context_keeps_input_order_and_line_numbers(tmp_path):
+    lines = [f"{i} {'alpha' if i == 30 else 'nothing'}" for i in range(60)]
+    f = write(tmp_path, "a.txt", "\n".join(lines) + "\n")
+    code, out, _, _ = jgrep(["alpha", f, "-C", "2", "-n", "-j", "8"], jitter=0.02)
+    assert code == 0
+    assert out == "".join(f"{i + 1}:{lines[i]}\n" for i in range(28, 33))
+
+
+def test_context_works_on_paragraphs(tmp_path):
+    f = write(tmp_path, "a.txt", "first para\n\nhas alpha\n\nthird para\n")
+    code, out, _, fake = jgrep(["alpha", f, "--para", "-C", "1"])
+    assert out == "first para\n\nhas alpha\n\nthird para\n\n"   # --para keeps a blank line after each
+    assert "> first para\n  has alpha" in {b["state"] for b in fake.bodies}
+
+
+def test_context_zero_is_the_plain_behaviour(tmp_path):
+    f = write(tmp_path, "a.txt", "one\ntwo alpha\n")
+    code, out, _, fake = jgrep(["alpha", f, "-C", "0"])
+    assert out == "two alpha\n"
+    assert {b["state"] for b in fake.bodies} == {"one", "two alpha"}   # no marks, no neighbours
+
+
+def test_context_is_rejected_where_it_makes_no_sense(tmp_path):
+    f = write(tmp_path, "a.txt", "alpha\n")
+    assert jgrep(["alpha", f, "-C", "-1"])[0] == 2
+    assert "-C takes 0 or more" in jgrep(["alpha", f, "-C", "-1"])[2]
+    assert jgrep(["alpha", f, "-C", "1", "--whole"])[0] == 2
+    assert "--whole and -C" in jgrep(["alpha", f, "-C", "1", "--whole"])[2]

@@ -17,7 +17,8 @@ import os
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, replace
 
 from . import __version__
 from .core import BACKENDS, Cache, Jev, JevError, JevFatal, config_dir, resolve_backend
@@ -33,9 +34,16 @@ class Record:
     file: str
     lineno: int
     text: str
+    before: tuple[str, ...] = ()   # the records just above, shown to Jev but not judged
+    after: tuple[str, ...] = ()    # and the ones just below
 
 
-def question(description: str) -> dict:
+def question(description: str, context: bool = False) -> dict:
+    if context:
+        return {"type": "noul", "instructions":
+                f'The lines marked ">" fit this description: "{description}". The other lines are the '
+                "surrounding text, shown only so the marked lines can be read in context; they are not "
+                "themselves being judged."}
     return {"type": "noul", "instructions": f'The text fits this description: "{description}"'}
 
 
@@ -68,6 +76,9 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--json", action="store_true", help="print one JSON object per match")
     ap.add_argument("--para", action="store_true", help="judge paragraphs (separated by blank lines), not lines")
     ap.add_argument("--whole", action="store_true", help="judge each file as a whole and print matching file names")
+    ap.add_argument("-C", "--context", type=int, default=0, metavar="N",
+                    help="also show Jev the N records either side of each one; the decision, and what is "
+                         "printed, is still one record at a time")
     ap.add_argument("--unordered", action="store_true", help="print matches as answers arrive, not in input order")
     ap.add_argument("-j", "--concurrency", type=int, default=32, metavar="N", help="calls in flight (default 32)")
     ap.add_argument("--timeout", type=float, default=15.0, metavar="SECONDS",
@@ -120,6 +131,52 @@ def records(files: list[str], args, stop: threading.Event):
                 seq += 1
 
 
+def contextual(stream, n: int):
+    """Hand each record the n records either side of it, from its own file.
+
+    A record is held back until the n after it have arrived, so on `tail -f` a match prints once
+    n more lines have come in.
+    """
+    before: deque = deque(maxlen=n)
+    waiting: list[tuple[Record, list[Record], list[Record]]] = []
+    current = None
+
+    def ready(force: bool):
+        while waiting and (force or len(waiting[0][2]) >= n):
+            rec, above, below = waiting.pop(0)
+            yield replace(rec, before=tuple(r.text for r in above), after=tuple(r.text for r in below))
+
+    for item in stream:
+        if isinstance(item, str):  # a file that could not be read
+            yield item
+            continue
+        if item.file != current:   # context does not reach across files
+            yield from ready(True)
+            before.clear()
+            current = item.file
+        for _, _, below in waiting:
+            if len(below) < n:
+                below.append(item)
+        waiting.append((item, list(before), []))
+        before.append(item)
+        yield from ready(False)
+    yield from ready(True)
+
+
+def marked(text: str, prefix: str) -> str:
+    return "\n".join(prefix + line for line in text.split("\n"))
+
+
+def state(rec: Record, args) -> str:
+    """What Jev is shown: the record on its own, or marked with `>` inside its context."""
+    if not args.context:
+        return rec.text[:args.max_chars]
+    window = [marked(t[:args.max_chars], "  ") for t in rec.before]
+    window.append(marked(rec.text[:args.max_chars], "> "))
+    window += [marked(t[:args.max_chars], "  ") for t in rec.after]
+    return "\n".join(window)
+
+
 def render(rec: Record, p: float, ps: list[float], args, show_file: bool) -> str:
     if args.json:
         obj = {"file": rec.file, "line": rec.lineno, "p": round(p, 4)}
@@ -139,7 +196,7 @@ def render(rec: Record, p: float, ps: list[float], args, show_file: bool) -> str
 
 async def run(args, descriptions: list[str], files: list[str], jev: Jev, out, err) -> int:
     loop = asyncio.get_running_loop()
-    questions = {f"d{i}": question(d) for i, d in enumerate(descriptions)}
+    questions = {f"d{i}": question(d, bool(args.context)) for i, d in enumerate(descriptions)}
     show_file = not args.no_filename and (args.with_filename or len(files) > 1)
     queue: asyncio.Queue = asyncio.Queue(maxsize=args.concurrency)
     sem = asyncio.Semaphore(args.concurrency)
@@ -151,7 +208,8 @@ async def run(args, descriptions: list[str], files: list[str], jev: Jev, out, er
 
     def feed() -> None:
         try:
-            for item in records(files, args, stop):
+            stream = records(files, args, stop)
+            for item in contextual(stream, args.context) if args.context else stream:
                 asyncio.run_coroutine_threadsafe(queue.put(item), loop).result()
             asyncio.run_coroutine_threadsafe(queue.put(None), loop).result()
         except BaseException:  # the loop is gone because the run halted early
@@ -192,7 +250,7 @@ async def run(args, descriptions: list[str], files: list[str], jev: Jev, out, er
             if not rec.text.strip():
                 result = (0.0, [0.0] * len(questions), None)
             else:
-                answers = await jev.ask(rec.text[:args.max_chars], questions)
+                answers = await jev.ask(state(rec, args), questions)
                 ps = [float(answers[q]["noul"]) for q in questions]
                 result = (min(ps) if args.all else max(ps), ps, None)
         except JevError as e:
@@ -270,6 +328,12 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
             return 2
     if args.whole and args.para:
         print("jgrep: --whole and --para cannot be combined", file=err)
+        return 2
+    if args.context < 0:
+        print("jgrep: -C takes 0 or more records", file=err)
+        return 2
+    if args.whole and args.context:
+        print("jgrep: --whole and -C cannot be combined; a whole file has nothing around it", file=err)
         return 2
     try:
         backend, key = resolve_backend(args.api)
