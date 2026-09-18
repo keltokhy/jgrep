@@ -87,14 +87,51 @@ jgrep: 994 records, 33 matched; 994 calls, 0 cached; 292,839 tokens; $0.0123; 4.
 
 ## How well does it work
 
-`bench/phrasing.py` scores 30 hand-labeled complaint lines against five descriptions of
-different grammatical shapes, including a negation and a question. Jev got all 150 right, under
-each of four ways of wording the question. Asking five descriptions in one call changed no
-decision and moved probabilities by 0.001 on average. Latency was flat at about 210 ms from 1
-to 64 questions per call.
+Three benchmarks on public labeled text, run on 2026-09-18 with Jev 1.13 through OpenRouter.
+Each one runs the installed `jgrep` command itself, uncached, at its default threshold of 0.5.
+Reproduce them with `bench/accuracy.py`.
 
-That corpus is easy on purpose. On borderline lines the probabilities land in between, which
-is what `-p` is for:
+**Against a keyword grep.** The UCI SMS Spam Collection: 5,574 text messages, 747 of them spam.
+
+| Filter | Precision | Recall | F1 | Time | Cost |
+|---|---:|---:|---:|---:|---:|
+| `jgrep "an unsolicited spam, scam or marketing text message"` | 0.87 | 0.95 | **0.91** | 27 s | $0.07 |
+| the same with `-p 0.9` | 0.98 | 0.84 | 0.90 | | |
+| `grep -iE "free\|win\|prize\|claim\|urgent\|cash\|txt\|call now\|..."` (17 terms) | 0.64 | 0.81 | 0.72 | 0.03 s | free |
+
+The regular expression was written before looking at any results and is in the script.
+
+**Against asking a chat model.** The do-it-yourself alternative is a loop that asks an LLM the
+same yes/no question about each line. On 300 of those messages, 32 requests in flight, all
+through OpenRouter:
+
+| Judge | F1 | Wall time | Cost | Median latency |
+|---|---:|---:|---:|---:|
+| **jgrep (Jev 1.13)** | 0.90 | **2.7 s** | $0.0039 | about 210 ms |
+| GPT Luna | 0.88 | 9.3 s | $0.0060 | 802 ms |
+| GPT Terra | 0.92 | 10.8 s | $0.0571 | 988 ms |
+| Qwen 3.7 Flash, thinking off | 0.78 | 8.4 s | $0.0007 | 789 ms |
+
+jgrep finished three to four times sooner than any of them. Its accuracy sits between the two
+GPT tiers; with 45 spam messages in the sample, those three F1 scores are within noise of each
+other. It is not the cheapest per line: a small open model costs a sixth as much and is
+clearly less accurate. Against the model that matched its accuracy, jgrep cost a fifteenth
+as much.
+
+**Several descriptions at once.** AG News test set, 7,600 articles, four descriptions
+(`-e "news about sports" -e "news about business, markets or the economy" ...`) judged in one
+call per article: 37 seconds and $0.13 for all four. Taking the most probable description as the
+label gives 86.6% accuracy with no training. One-vs-rest F1 at 0.5 was 0.97 for sports, 0.82 for
+science and technology, 0.82 for world affairs and 0.72 for business, which over-triggers
+(precision 0.58) because so much technology news is also business news.
+
+**Does the wording of a description matter?** `bench/phrasing.py` scores 30 hand-labeled lines
+against five descriptions of different grammatical shapes, including a negation and a question.
+Jev got all 150 right under each of four ways of wording the question; that set is easy on
+purpose. Asking five descriptions in one call changed no decision and moved probabilities by
+0.001 on average. Latency was flat at about 210 ms from 1 to 64 questions per call.
+
+On borderline lines the probabilities land in between, which is what `-p` is for:
 
 ```
 0.65  [a complaint about noise]  The music from the church on Sunday mornings is lovely but it does start early.
@@ -120,6 +157,7 @@ Things to know:
 ```bash
 uv sync && uv run pytest        # 23 tests against a fake API; no key, no network
 uv run python bench/phrasing.py # live; costs about a cent
+uv run python bench/accuracy.py prepare && uv run python bench/accuracy.py spam   # also: news, llm
 ```
 
 `src/jgrep/core.py` is the client: two backends, retries inside a time budget, the cache,
