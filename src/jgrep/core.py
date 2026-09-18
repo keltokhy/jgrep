@@ -118,6 +118,7 @@ class Meter:
     retries: int = 0
     input_tokens: int = 0
     cost: float = 0.0
+    model: str = ""  # the model the API says answered, which resolves aliases like jev-latest
     latencies: list[float] = field(default_factory=list)
 
     def summary(self) -> str:
@@ -212,6 +213,7 @@ class Jev:
         self.meter.input_tokens += tokens
         self.meter.cost += tokens * PRICE_PER_MTOK / 1e6 if cost is None else cost
         self.meter.latencies.append(seconds)
+        self.meter.model = data.get("model") or self.model
         out = {}
         for qid, q in questions.items():
             if qid not in data["answers"]:
