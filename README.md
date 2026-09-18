@@ -62,7 +62,7 @@ jgrep -q "a stack trace" build.log && notify "build broke"
 | `--json` | One JSON object per match, with the probability. |
 | `--unordered` | Print matches as answers arrive. |
 | `-j N` | Calls in flight. Default 32. |
-| `--budget DOLLARS` | Stop once this much is spent. Default 1.00; 0 for no limit. |
+| `--budget DOLLARS` | Stop once this much is spent. Default 1.00, or `$JGREP_BUDGET`; 0 for no limit. |
 | `--timeout SECONDS` | Give up on a line after this long, retries included. Default 15. |
 | `--no-cache`, `--api`, `--model`, `--stats` | See `jgrep --help`. |
 
@@ -77,7 +77,9 @@ cached in `~/.cache/jev/answers.sqlite`, keyed on the exact model, line and desc
 Extra `-e` descriptions add about 27 tokens each and no time.
 
 jgrep stops at `--budget`, one dollar by default, so a stray `jgrep pattern huge.log` cannot
-run up a bill. With `--stats`, or whenever stderr is a terminal, it prints what the run cost:
+run up a bill. A dollar is about 80,000 lines. A stopped run loses nothing: rerun with a higher
+budget and everything already judged comes from the cache. For a long-lived `tail -f` monitor,
+set your own default once with `export JGREP_BUDGET=20`, or `0` for no limit. With `--stats`, or whenever stderr is a terminal, it prints what the run cost:
 
 ```
 jgrep: 994 records, 33 matched; 994 calls, 0 cached; 292,839 tokens; $0.0123; 4.6s
@@ -116,7 +118,7 @@ Things to know:
 ## Development
 
 ```bash
-uv sync && uv run pytest        # 22 tests against a fake API; no key, no network
+uv sync && uv run pytest        # 23 tests against a fake API; no key, no network
 uv run python bench/phrasing.py # live; costs about a cent
 ```
 

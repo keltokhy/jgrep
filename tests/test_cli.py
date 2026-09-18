@@ -41,7 +41,7 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    for name in ("TYPESAFE_API_KEY", "JEV_API", "JEV_MODEL", "JEV_URL"):
+    for name in ("TYPESAFE_API_KEY", "JEV_API", "JEV_MODEL", "JEV_URL", "JGREP_BUDGET"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -165,6 +165,16 @@ def test_budget_halts_the_run(tmp_path):
     code, out, err, fake = jgrep(["alpha", f, "--budget", "0.05", "-j", "2", "--no-cache"])
     assert code == 2 and "budget" in err
     assert len(fake.bodies) < 20
+
+
+def test_budget_default_comes_from_the_environment(monkeypatch, tmp_path):
+    f = write(tmp_path, "a.txt", "".join(f"alpha {i}\n" for i in range(400)))
+    monkeypatch.setenv("JGREP_BUDGET", "0.05")
+    assert jgrep(["alpha", f, "-j", "2", "--no-cache"])[0] == 2          # the environment's cap applies
+    assert jgrep(["alpha", f, "--budget", "0", "--no-cache"])[0] == 0    # the flag overrides it
+    monkeypatch.setenv("JGREP_BUDGET", "lots")
+    code, _, err, _ = jgrep(["alpha", f])
+    assert code == 2 and "JGREP_BUDGET must be a number" in err
 
 
 def test_paragraphs_and_whole_files(tmp_path):

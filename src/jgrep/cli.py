@@ -24,6 +24,7 @@ from .core import BACKENDS, Cache, Jev, JevError, JevFatal, config_dir, resolve_
 
 STDIN = "(standard input)"
 MAX_ERRORS_SHOWN = 10
+DEFAULT_BUDGET = 1.0  # dollars; a grep-shaped command that bills per line needs a seat belt
 
 
 @dataclass
@@ -71,8 +72,8 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("-j", "--concurrency", type=int, default=32, metavar="N", help="calls in flight (default 32)")
     ap.add_argument("--timeout", type=float, default=15.0, metavar="SECONDS",
                     help="give up on a line after this long, retries included (default 15)")
-    ap.add_argument("--budget", type=float, default=1.0, metavar="DOLLARS",
-                    help="stop once this much has been spent (default 1.00; 0 for no limit)")
+    ap.add_argument("--budget", type=float, default=None, metavar="DOLLARS",
+                    help="stop once this much has been spent (default 1.00, or $JGREP_BUDGET; 0 for no limit)")
     ap.add_argument("--max-chars", type=int, default=8000, metavar="N",
                     help="judge only the first N characters of a record (default 8000)")
     ap.add_argument("--no-cache", action="store_true", help="do not read or write the answer cache")
@@ -261,6 +262,12 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
     if not descriptions:
         ap.print_usage(err)
         return 2
+    if args.budget is None:
+        try:
+            args.budget = float(os.environ.get("JGREP_BUDGET") or DEFAULT_BUDGET)
+        except ValueError:
+            print(f"jgrep: JGREP_BUDGET must be a number of dollars; got {os.environ['JGREP_BUDGET']!r}", file=err)
+            return 2
     if args.whole and args.para:
         print("jgrep: --whole and --para cannot be combined", file=err)
         return 2
