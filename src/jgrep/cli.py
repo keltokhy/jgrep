@@ -57,8 +57,9 @@ def parser() -> argparse.ArgumentParser:
                '  jgrep -o "about heat or hot water" complaints.txt | sort -rn | head\n'
                '  jgrep -v -p 0.2 "spam" inbox.txt\n'
                '  jgrep --whole "uses a bunching estimator" abstracts/*.txt\n\n'
-               "Jev is reached through TypeSafe's API (TYPESAFE_API_KEY) or OpenRouter (OPENROUTER_API_KEY).\n"
-               f"Keys can also live in {config_dir()}/typesafe.key or openrouter.key.")
+               "Jev is reached through TypeSafe's API (TYPESAFE_API_KEY), OpenRouter (OPENROUTER_API_KEY) or a\n"
+               "System One gateway of your own (JEV_GATEWAY_URL and JEV_GATEWAY_API_KEY).\n"
+               f"Keys can also live in {config_dir()}/typesafe.key, openrouter.key or gateway.key.")
     ap.add_argument("args", nargs="*", help=argparse.SUPPRESS)
     ap.add_argument("-e", dest="descriptions", action="append", metavar="DESCRIPTION",
                     help="a description; repeat for several, which are judged in one call (a line matches if any fits)")

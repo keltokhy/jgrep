@@ -43,7 +43,8 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    for name in ("TYPESAFE_API_KEY", "JEV_API", "JEV_MODEL", "JEV_URL", "JGREP_BUDGET"):
+    for name in ("TYPESAFE_API_KEY", "JEV_API", "JEV_MODEL", "JEV_URL", "JGREP_BUDGET",
+                 "JEV_GATEWAY_URL", "JEV_GATEWAY_API_KEY"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -228,6 +229,50 @@ def test_key_file_is_read(monkeypatch, tmp_path):
     (tmp_path / "config" / "jev").mkdir(parents=True)
     (tmp_path / "config" / "jev" / "openrouter.key").write_text("file-key\n")
     assert jgrep(["alpha", write(tmp_path, "a.txt", "alpha\n")])[0] == 0
+
+
+def gateway_handler(seen):
+    def handler(request):
+        seen.append((str(request.url), request.headers["authorization"], json.loads(request.content)["model"]))
+        return httpx.Response(200, json={"model": "jev-1.13.0", "answers": {"d0": {"type": "noul", "noul": 0.9}},
+                                         "usage": {"input_tokens": 300, "output_tokens": 1}})
+    return handler
+
+
+def test_gateway_is_called_at_its_own_url_with_its_own_key(monkeypatch, tmp_path):
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    monkeypatch.setenv("JEV_GATEWAY_URL", "https://gateway.example.com/v1/systemone")
+    monkeypatch.setenv("JEV_GATEWAY_API_KEY", "gw-key")
+    seen, out, err = [], io.StringIO(), io.StringIO()
+    code = main(["alpha", write(tmp_path, "a.txt", "alpha\n")],
+                transport=httpx.MockTransport(gateway_handler(seen)), out=out, err=err)
+    assert code == 0 and out.getvalue() == "alpha\n"
+    assert seen == [("https://gateway.example.com/v1/systemone", "Bearer gw-key", "jev-latest")]
+
+
+def test_gateway_url_and_key_can_come_from_config_files(monkeypatch, tmp_path):
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    (tmp_path / "config" / "jev").mkdir(parents=True)
+    (tmp_path / "config" / "jev" / "gateway.key").write_text("file-key\n")
+    (tmp_path / "config" / "jev" / "gateway.url").write_text("https://gw.internal/v1/systemone\n")
+    seen = []
+    code = main(["alpha", write(tmp_path, "a.txt", "alpha\n"), "--api", "gateway"],
+                transport=httpx.MockTransport(gateway_handler(seen)), out=io.StringIO(), err=io.StringIO())
+    assert code == 0
+    assert seen == [("https://gw.internal/v1/systemone", "Bearer file-key", "jev-latest")]
+
+
+def test_gateway_without_a_url_is_explained(monkeypatch, tmp_path):
+    monkeypatch.setenv("JEV_GATEWAY_API_KEY", "gw-key")
+    code, _, err, _ = jgrep(["alpha", write(tmp_path, "a.txt", "alpha\n"), "--api", "gateway"])
+    assert code == 2 and "no URL for gateway" in err and "JEV_GATEWAY_URL" in err
+
+
+def test_gateway_key_alone_does_not_win_the_default(monkeypatch, tmp_path):
+    # A gateway key with no URL cannot be used, so the default falls through to a usable API.
+    monkeypatch.setenv("JEV_GATEWAY_API_KEY", "gw-key")
+    code, out, _, fake = jgrep(["alpha", write(tmp_path, "a.txt", "alpha\n")])
+    assert code == 0 and fake.bodies[0]["model"] == "~typesafe/jev-latest"
 
 
 def test_typesafe_error_bodies_are_readable(monkeypatch, tmp_path):
