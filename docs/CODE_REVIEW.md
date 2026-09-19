@@ -15,6 +15,9 @@ URL/commit nor raw outputs. Its reported 22,054-line run could not be reproduced
 test related behaviors: removed error checks, rollback, comments, existing ignored errors,
 temporary-file cleanup, deleted functions, and changes that preserve or improve error handling.
 
+The [response to issue #3](ISSUE_3_RESPONSE.md) maps the suggestions to shipped features and
+records the remaining proposals and evidence needed to evaluate them.
+
 ## Complete changes
 
 Task: identify a change that starts silently ignoring a persistent-write or rollback failure
