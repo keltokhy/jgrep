@@ -31,6 +31,7 @@ class Record:
     start: int | None = None
     end: int | None = None
     end_line: int | None = None
+    unit: dict | None = None
 
 
 def discover(files: list[str], args) -> tuple[list[str], list[str]]:
@@ -219,9 +220,13 @@ def chunks(f, label: str, size: int, overlap: int, stop: threading.Event):
 
 
 def plain_records(f, label: str, args, stop: threading.Event):
+    if args.diff or args.functions:
+        from .code_inputs import code_records
+        yield from code_records(f.read(), label, args, stop)
+        return
     if args.whole:
         # One extra character makes truncation detectable without reading the entire file.
-        yield Record(0, label, 1, f.read(args.max_chars + 1))
+        yield Record(0, label, 1, f.read() if args.emit_records else f.read(args.max_chars + 1))
         return
     if args.chunks:
         yield from chunks(f, label, args.chunks, args.overlap, stop)
@@ -257,6 +262,8 @@ def records(files: list[str], args, stop: threading.Event):
             with f:
                 if args.recursive and name != "-" and b"\0" in f.buffer.peek(8192)[:8192]:
                     continue  # binary files discovered during a directory search
+                if args.functions and args.recursive and not args.lang and Path(name).suffix not in {".py", ".go"}:
+                    continue
                 if args.jsonl:
                     stream = json_records(f, label, args.field, stop)
                 elif args.csv:

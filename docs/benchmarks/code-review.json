@@ -1,0 +1,4490 @@
+{
+  "fixture_sha256": "a3c345311d7b9a39d2598b2772c478801c69fd9001f6d4e1214e46e6f5170cdd",
+  "requested_model": "typesafe/jev-1.13",
+  "cache": false,
+  "limitations": [
+    "20 handwritten examples, not a held-out production benchmark.",
+    "Labels assume SaveConfig, store.Put, AddMessage, Commit, and restoreSnapshot return errors.",
+    "Case-level precision/recall: any matching record flags the case. Individual lines are not labeled.",
+    "First useful output depends on fixture order, input-order emission, provider and concurrency.",
+    "Latency includes provider calls; no human review time was measured."
+  ],
+  "runs": [
+    {
+      "mode": "diff_lines",
+      "task": "a change that causes a persistent state write or rollback operation to have its failure silently ignored, where that failure was previously returned, logged, or otherwise handled",
+      "threshold": 0.5,
+      "seconds": 1.6872757920064032,
+      "first_useful_seconds": 0.8228080840053735,
+      "case_precision": 0.5714285714285714,
+      "case_recall": 1.0,
+      "true_positive_cases": [
+        "c01",
+        "c02",
+        "c03",
+        "c04",
+        "c05",
+        "c06",
+        "c07",
+        "c08"
+      ],
+      "false_positive_cases": [
+        "c09",
+        "c10",
+        "c12",
+        "c15",
+        "c16",
+        "c18"
+      ],
+      "missed_positive_cases": [],
+      "records_to_review": 22,
+      "records_from_negative_cases": 10,
+      "median_call_seconds": 0.23868837500049267,
+      "meter": {
+        "calls": 147,
+        "cached": 31,
+        "retries": 0,
+        "input_tokens": 45715,
+        "cost": 0.0019200300000000003,
+        "model": "typesafe/jev-1.13-20260917"
+      },
+      "rows": [
+        {
+          "file": "c01.go",
+          "line": 1,
+          "p": 0.34,
+          "text": "--- a/c01.go",
+          "observed_seconds": 0.37717916700057685,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 2,
+          "p": 0.28,
+          "text": "+++ b/c01.go",
+          "observed_seconds": 0.4877676670002984,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 3,
+          "p": 0.19,
+          "text": "@@ -1,6 +1,4 @@",
+          "observed_seconds": 0.48778745900199283,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 4,
+          "p": 0.18,
+          "text": " func update() error {",
+          "observed_seconds": 0.48780058400006965,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 5,
+          "p": 0.31,
+          "text": "-    if err := SaveConfig(); err != nil {",
+          "observed_seconds": 0.48781279199465644,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 6,
+          "p": 0.37,
+          "text": "-        return err",
+          "observed_seconds": 0.8227696669928264,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 7,
+          "p": 0.29,
+          "text": "-    }",
+          "observed_seconds": 0.8227865420049056,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 8,
+          "p": 0.24,
+          "text": "+    SaveConfig()",
+          "observed_seconds": 0.8227981670061126,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 9,
+          "p": 0.51,
+          "text": "     return nil",
+          "observed_seconds": 0.8228080840053735,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 10,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 0.8228190840018215,
+          "case": "c01"
+        },
+        {
+          "file": "c02.go",
+          "line": 1,
+          "p": 0.36,
+          "text": "--- a/c02.go",
+          "observed_seconds": 0.8228282089985441,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 2,
+          "p": 0.3,
+          "text": "+++ b/c02.go",
+          "observed_seconds": 0.8228383749956265,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 3,
+          "p": 0.22,
+          "text": "@@ -1,7 +1,5 @@",
+          "observed_seconds": 0.8228487919986947,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 4,
+          "p": 0.21,
+          "text": " func save() error {",
+          "observed_seconds": 0.8470677500008605,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 5,
+          "p": 0.39,
+          "text": "     err := SaveConfig()",
+          "observed_seconds": 0.8470824169926345,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 6,
+          "p": 0.21,
+          "text": "-    if err != nil {",
+          "observed_seconds": 0.8470945000008214,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 7,
+          "p": 0.37,
+          "text": "-        return err",
+          "observed_seconds": 0.8471027089981362,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 8,
+          "p": 0.29,
+          "text": "-    }",
+          "observed_seconds": 0.8471108749945415,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 9,
+          "p": 0.65,
+          "text": "+    _ = err",
+          "observed_seconds": 0.8471198750048643,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 10,
+          "p": 0.51,
+          "text": "     return nil",
+          "observed_seconds": 0.8471296670031734,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 11,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 0.8471376670058817,
+          "case": "c02"
+        },
+        {
+          "file": "c03.go",
+          "line": 1,
+          "p": 0.38,
+          "text": "--- a/c03.go",
+          "observed_seconds": 0.8471466670016525,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 2,
+          "p": 0.29,
+          "text": "+++ b/c03.go",
+          "observed_seconds": 0.8471548749948852,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 3,
+          "p": 0.21,
+          "text": "@@ -1,3 +1,4 @@",
+          "observed_seconds": 0.8471626669925172,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 4,
+          "p": 0.21,
+          "text": " func rollback() error {",
+          "observed_seconds": 0.8471717920037918,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 5,
+          "p": 0.49,
+          "text": "-    return os.Rename(backup, original)",
+          "observed_seconds": 0.8471803339925827,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 6,
+          "p": 0.84,
+          "text": "+    _ = os.Rename(backup, original)",
+          "observed_seconds": 0.8471898339921609,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 7,
+          "p": 0.63,
+          "text": "+    return nil",
+          "observed_seconds": 0.8471984999923734,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 8,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 0.8472060420026537,
+          "case": "c03"
+        },
+        {
+          "file": "c04.go",
+          "line": 1,
+          "p": 0.39,
+          "text": "--- a/c04.go",
+          "observed_seconds": 0.8472139170044102,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 2,
+          "p": 0.3,
+          "text": "+++ b/c04.go",
+          "observed_seconds": 0.847224291996099,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 3,
+          "p": 0.18,
+          "text": "@@ -1,5 +1,3 @@",
+          "observed_seconds": 0.8472321250010282,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 4,
+          "p": 0.16,
+          "text": " func remember() {",
+          "observed_seconds": 0.847240041999612,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 5,
+          "p": 0.26,
+          "text": "-    if err := history.AddMessage(message); err != nil {",
+          "observed_seconds": 0.8472486669925274,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 6,
+          "p": 0.38,
+          "text": "-        log.Print(err)",
+          "observed_seconds": 1.030014709001989,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 7,
+          "p": 0.29,
+          "text": "-    }",
+          "observed_seconds": 1.0300257920025615,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 8,
+          "p": 0.74,
+          "text": "+    _ = history.AddMessage(message)",
+          "observed_seconds": 1.0300323749979725,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 9,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 1.030038249999052,
+          "case": "c04"
+        },
+        {
+          "file": "c05.go",
+          "line": 1,
+          "p": 0.38,
+          "text": "--- a/c05.go",
+          "observed_seconds": 1.0300493749964517,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 2,
+          "p": 0.3,
+          "text": "+++ b/c05.go",
+          "observed_seconds": 1.0300552090047859,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 3,
+          "p": 0.21,
+          "text": "@@ -1,7 +1,3 @@",
+          "observed_seconds": 1.1913851669960422,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 4,
+          "p": 0.31,
+          "text": " func persist() {",
+          "observed_seconds": 1.1913934589974815,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 5,
+          "p": 0.22,
+          "text": "-    defer func() {",
+          "observed_seconds": 1.1913986250001471,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 6,
+          "p": 0.28,
+          "text": "-        if err := tx.Commit(); err != nil {",
+          "observed_seconds": 1.1914037499955157,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 7,
+          "p": 0.28,
+          "text": "-            log.Print(err)",
+          "observed_seconds": 1.1914079590060282,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 8,
+          "p": 0.25,
+          "text": "-        }",
+          "observed_seconds": 1.1914127500058385,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 9,
+          "p": 0.26,
+          "text": "-    }()",
+          "observed_seconds": 1.191417084002751,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 10,
+          "p": 0.71,
+          "text": "+    defer tx.Commit()",
+          "observed_seconds": 1.191421833995264,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 11,
+          "p": 0.33,
+          "text": " }",
+          "observed_seconds": 1.191427333993488,
+          "case": "c05"
+        },
+        {
+          "file": "c06.go",
+          "line": 1,
+          "p": 0.36,
+          "text": "--- a/c06.go",
+          "observed_seconds": 1.191432541992981,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 2,
+          "p": 0.31,
+          "text": "+++ b/c06.go",
+          "observed_seconds": 1.1914365419943351,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 3,
+          "p": 0.21,
+          "text": "@@ -1,6 +1,6 @@",
+          "observed_seconds": 1.1914405839925166,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 4,
+          "p": 0.21,
+          "text": " func save() error {",
+          "observed_seconds": 1.1914445839938708,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 5,
+          "p": 0.16,
+          "text": "     if err := os.WriteFile(configPath, config, 0600); err != nil {",
+          "observed_seconds": 1.1914490420022048,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 6,
+          "p": 0.37,
+          "text": "-        return err",
+          "observed_seconds": 1.19145333400229,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 7,
+          "p": 0.6,
+          "text": "+        return nil",
+          "observed_seconds": 1.1914582089957548,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 8,
+          "p": 0.3,
+          "text": "     }",
+          "observed_seconds": 1.1914621670002816,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 9,
+          "p": 0.5,
+          "text": "     return nil",
+          "observed_seconds": 1.1914673749997746,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 10,
+          "p": 0.33,
+          "text": " }",
+          "observed_seconds": 1.1914719170017634,
+          "case": "c06"
+        },
+        {
+          "file": "c07.go",
+          "line": 1,
+          "p": 0.38,
+          "text": "--- a/c07.go",
+          "observed_seconds": 1.1914760840008967,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 2,
+          "p": 0.3,
+          "text": "+++ b/c07.go",
+          "observed_seconds": 1.1914802919927752,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 3,
+          "p": 0.23,
+          "text": "@@ -1,6 +1,4 @@",
+          "observed_seconds": 1.1914939999987837,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 4,
+          "p": 0.21,
+          "text": " func save() error {",
+          "observed_seconds": 1.1914980419969652,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 5,
+          "p": 0.25,
+          "text": "-    if err := store.Put(key, value); err != nil {",
+          "observed_seconds": 1.1915024589980021,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 6,
+          "p": 0.12,
+          "text": "-        return fmt.Errorf(\"save: %w\", err)",
+          "observed_seconds": 1.1915070840041153,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 7,
+          "p": 0.29,
+          "text": "-    }",
+          "observed_seconds": 1.1915112499991665,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 8,
+          "p": 0.39,
+          "text": "+    store.Put(key, value)",
+          "observed_seconds": 1.1915153339941753,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 9,
+          "p": 0.5,
+          "text": "     return nil",
+          "observed_seconds": 1.1915197920025093,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 10,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 1.1915242499962915,
+          "case": "c07"
+        },
+        {
+          "file": "c08.go",
+          "line": 1,
+          "p": 0.36,
+          "text": "--- a/c08.go",
+          "observed_seconds": 1.191528291994473,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 2,
+          "p": 0.3,
+          "text": "+++ b/c08.go",
+          "observed_seconds": 1.1915322090062546,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 3,
+          "p": 0.2,
+          "text": "@@ -1,4 +1,5 @@",
+          "observed_seconds": 1.1915361669962294,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 4,
+          "p": 0.22,
+          "text": " func rollback() error {",
+          "observed_seconds": 1.191540208994411,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 5,
+          "p": 0.4,
+          "text": "     err := restoreSnapshot(backup)",
+          "observed_seconds": 1.1915444170008413,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 6,
+          "p": 0.33,
+          "text": "-    return err",
+          "observed_seconds": 1.1915483750053681,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 7,
+          "p": 0.63,
+          "text": "+    _ = err",
+          "observed_seconds": 1.1915522920025978,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 8,
+          "p": 0.6,
+          "text": "+    return nil",
+          "observed_seconds": 1.1915579170017736,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 9,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 1.1915624999965075,
+          "case": "c08"
+        },
+        {
+          "file": "c09.go",
+          "line": 1,
+          "p": 0.39,
+          "text": "--- a/c09.go",
+          "observed_seconds": 1.1915666249988135,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 2,
+          "p": 0.28,
+          "text": "+++ b/c09.go",
+          "observed_seconds": 1.1915707500011194,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 3,
+          "p": 0.21,
+          "text": "@@ -1,4 +1,6 @@",
+          "observed_seconds": 1.19157450000057,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 4,
+          "p": 0.18,
+          "text": " func update() error {",
+          "observed_seconds": 1.1915785000019241,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 5,
+          "p": 0.27,
+          "text": "-    SaveConfig()",
+          "observed_seconds": 1.1915824589959811,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 6,
+          "p": 0.27,
+          "text": "+    if err := SaveConfig(); err != nil {",
+          "observed_seconds": 1.1915909999952419,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 7,
+          "p": 0.31,
+          "text": "+        return err",
+          "observed_seconds": 1.1915949590038508,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 8,
+          "p": 0.26,
+          "text": "+    }",
+          "observed_seconds": 1.191598959005205,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 9,
+          "p": 0.5,
+          "text": "     return nil",
+          "observed_seconds": 1.1916027499974007,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 10,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 1.1916066669946304,
+          "case": "c09"
+        },
+        {
+          "file": "c10.go",
+          "line": 1,
+          "p": 0.37,
+          "text": "--- a/c10.go",
+          "observed_seconds": 1.1916107919969363,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 2,
+          "p": 0.27,
+          "text": "+++ b/c10.go",
+          "observed_seconds": 1.1916144589922624,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 3,
+          "p": 0.2,
+          "text": "@@ -1,6 +1,3 @@",
+          "observed_seconds": 1.1916184169967892,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 4,
+          "p": 0.18,
+          "text": " func update() error {",
+          "observed_seconds": 1.1916225419990951,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 5,
+          "p": 0.28,
+          "text": "-    if err := SaveConfig(); err != nil {",
+          "observed_seconds": 1.1916266250045737,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 6,
+          "p": 0.38,
+          "text": "-        return err",
+          "observed_seconds": 1.1916307089995826,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 7,
+          "p": 0.3,
+          "text": "-    }",
+          "observed_seconds": 1.191634458999033,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 8,
+          "p": 0.57,
+          "text": "-    return nil",
+          "observed_seconds": 1.1916382500057807,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 9,
+          "p": 0.53,
+          "text": "+    return SaveConfig()",
+          "observed_seconds": 1.191643166996073,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 10,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 1.1916471669974271,
+          "case": "c10"
+        },
+        {
+          "file": "c11.go",
+          "line": 1,
+          "p": 0.35,
+          "text": "--- a/c11.go",
+          "observed_seconds": 1.1916513339965604,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 2,
+          "p": 0.26,
+          "text": "+++ b/c11.go",
+          "observed_seconds": 1.1916553750052117,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 3,
+          "p": 0.21,
+          "text": "@@ -1,3 +1,3 @@",
+          "observed_seconds": 1.191659250005614,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 4,
+          "p": 0.16,
+          "text": " func clean() {",
+          "observed_seconds": 1.1916630000050645,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 5,
+          "p": 0.23,
+          "text": "-    delete(options, \"unused\")",
+          "observed_seconds": 1.191667042003246,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 6,
+          "p": 0.15,
+          "text": "+    delete(options, \"extra_body\")",
+          "observed_seconds": 1.237863333997666,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 7,
+          "p": 0.3,
+          "text": " }",
+          "observed_seconds": 1.237871167002595,
+          "case": "c11"
+        },
+        {
+          "file": "c12.go",
+          "line": 1,
+          "p": 0.38,
+          "text": "--- a/c12.go",
+          "observed_seconds": 1.2378775419929298,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 2,
+          "p": 0.28,
+          "text": "+++ b/c12.go",
+          "observed_seconds": 1.2378829590015812,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 3,
+          "p": 0.2,
+          "text": "@@ -1,5 +1,4 @@",
+          "observed_seconds": 1.2378883750061505,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 4,
+          "p": 0.22,
+          "text": "+// Temporary scratch files are cleaned up best-effort.",
+          "observed_seconds": 1.2378949169942643,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 5,
+          "p": 0.18,
+          "text": " func finish() {",
+          "observed_seconds": 1.2379022919922136,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 6,
+          "p": 0.3,
+          "text": "-    if err := os.Remove(tempFile); err != nil {",
+          "observed_seconds": 1.2964300839958014,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 7,
+          "p": 0.38,
+          "text": "-        log.Print(err)",
+          "observed_seconds": 1.2964449589926517,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 8,
+          "p": 0.3,
+          "text": "-    }",
+          "observed_seconds": 1.2964543340058299,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 9,
+          "p": 0.7,
+          "text": "+    _ = os.Remove(tempFile)",
+          "observed_seconds": 1.296462625003187,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 10,
+          "p": 0.3,
+          "text": " }",
+          "observed_seconds": 1.2964700419979636,
+          "case": "c12"
+        },
+        {
+          "file": "c13.go",
+          "line": 1,
+          "p": 0.36,
+          "text": "--- a/c13.go",
+          "observed_seconds": 1.4220727089996217,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 2,
+          "p": 0.29,
+          "text": "+++ b/c13.go",
+          "observed_seconds": 1.4220960420061601,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 3,
+          "p": 0.21,
+          "text": "@@ -1,5 +1,5 @@",
+          "observed_seconds": 1.4221080419956706,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 4,
+          "p": 0.21,
+          "text": " func save() {",
+          "observed_seconds": 1.422118667003815,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 5,
+          "p": 0.29,
+          "text": "     if err := SaveConfig(); err != nil {",
+          "observed_seconds": 1.4221291249996284,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 6,
+          "p": 0.39,
+          "text": "-        log.Print(err)",
+          "observed_seconds": 1.42221104199416,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 7,
+          "p": 0.24,
+          "text": "+        log.Printf(\"saving failed: %v\", err)",
+          "observed_seconds": 1.4222243749973131,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 8,
+          "p": 0.31,
+          "text": "     }",
+          "observed_seconds": 1.422234917001333,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 9,
+          "p": 0.3,
+          "text": " }",
+          "observed_seconds": 1.4222457500000019,
+          "case": "c13"
+        },
+        {
+          "file": "c14.go",
+          "line": 1,
+          "p": 0.39,
+          "text": "--- a/c14.go",
+          "observed_seconds": 1.4222566669923253,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 2,
+          "p": 0.3,
+          "text": "+++ b/c14.go",
+          "observed_seconds": 1.4222668339934899,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 3,
+          "p": 0.24,
+          "text": "@@ -1,3 +1,4 @@",
+          "observed_seconds": 1.4222768339968752,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 4,
+          "p": 0.25,
+          "text": "+// Previously this silently ignored config write failures.",
+          "observed_seconds": 1.4222881669993512,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 5,
+          "p": 0.2,
+          "text": " func save() error {",
+          "observed_seconds": 1.4222982920036884,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 6,
+          "p": 0.46,
+          "text": "     return SaveConfig()",
+          "observed_seconds": 1.4223116249922896,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 7,
+          "p": 0.3,
+          "text": " }",
+          "observed_seconds": 1.4223224589950405,
+          "case": "c14"
+        },
+        {
+          "file": "c15.go",
+          "line": 1,
+          "p": 0.39,
+          "text": "--- a/c15.go",
+          "observed_seconds": 1.4223345420032274,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 2,
+          "p": 0.3,
+          "text": "+++ b/c15.go",
+          "observed_seconds": 1.4223440420028055,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 3,
+          "p": 0.24,
+          "text": "@@ -1,4 +1,4 @@",
+          "observed_seconds": 1.4223541669925908,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 4,
+          "p": 0.19,
+          "text": "-// Save state.",
+          "observed_seconds": 1.4286575839942088,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 5,
+          "p": 0.08,
+          "text": "+// Save the current configuration.",
+          "observed_seconds": 1.4287410840042867,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 6,
+          "p": 0.2,
+          "text": " func save() error {",
+          "observed_seconds": 1.4287597090005875,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 7,
+          "p": 0.66,
+          "text": "     _ = SaveConfig()",
+          "observed_seconds": 1.428773874999024,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 8,
+          "p": 0.58,
+          "text": "     return nil",
+          "observed_seconds": 1.428786083997693,
+          "case": "c15"
+        },
+        {
+          "file": "c16.go",
+          "line": 1,
+          "p": 0.37,
+          "text": "--- a/c16.go",
+          "observed_seconds": 1.4287981670058798,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 2,
+          "p": 0.27,
+          "text": "+++ b/c16.go",
+          "observed_seconds": 1.428809208999155,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 3,
+          "p": 0.24,
+          "text": "@@ -1,4 +1,4 @@",
+          "observed_seconds": 1.428819916996872,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 4,
+          "p": 0.2,
+          "text": " func save() error {",
+          "observed_seconds": 1.4288293749996228,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 5,
+          "p": 0.76,
+          "text": "-    _ = store.Put(oldKey, value)",
+          "observed_seconds": 1.5445467499957886,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 6,
+          "p": 0.8,
+          "text": "+    _ = store.Put(newKey, value)",
+          "observed_seconds": 1.5445610839960864,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 7,
+          "p": 0.58,
+          "text": "     return nil",
+          "observed_seconds": 1.5445724589953898,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 8,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 1.659695209003985,
+          "case": "c16"
+        },
+        {
+          "file": "c17.go",
+          "line": 1,
+          "p": 0.38,
+          "text": "--- a/c17.go",
+          "observed_seconds": 1.6597145419946173,
+          "case": "c17"
+        },
+        {
+          "file": "c17.go",
+          "line": 2,
+          "p": 0.3,
+          "text": "+++ b/c17.go",
+          "observed_seconds": 1.6597273749939632,
+          "case": "c17"
+        },
+        {
+          "file": "c17.go",
+          "line": 3,
+          "p": 0.18,
+          "text": "@@ -1,3 +0,0 @@",
+          "observed_seconds": 1.6597420000034617,
+          "case": "c17"
+        },
+        {
+          "file": "c17.go",
+          "line": 4,
+          "p": 0.19,
+          "text": "-func obsolete() error {",
+          "observed_seconds": 1.6597837089939276,
+          "case": "c17"
+        },
+        {
+          "file": "c17.go",
+          "line": 5,
+          "p": 0.31,
+          "text": "-    return SaveConfig()",
+          "observed_seconds": 1.6597949999995762,
+          "case": "c17"
+        },
+        {
+          "file": "c17.go",
+          "line": 6,
+          "p": 0.35,
+          "text": "-}",
+          "observed_seconds": 1.6598055840004236,
+          "case": "c17"
+        },
+        {
+          "file": "c18.go",
+          "line": 1,
+          "p": 0.39,
+          "text": "--- a/c18.go",
+          "observed_seconds": 1.659817124993424,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 2,
+          "p": 0.28,
+          "text": "+++ b/c18.go",
+          "observed_seconds": 1.6598273340059677,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 3,
+          "p": 0.14,
+          "text": "@@ -0,0 +1,3 @@",
+          "observed_seconds": 1.6598372089938493,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 4,
+          "p": 0.1,
+          "text": "+func create() error {",
+          "observed_seconds": 1.6598474589991383,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 5,
+          "p": 0.53,
+          "text": "+    return SaveConfig()",
+          "observed_seconds": 1.6839608750015032,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 6,
+          "p": 0.34,
+          "text": "+}",
+          "observed_seconds": 1.683977666994906,
+          "case": "c18"
+        },
+        {
+          "file": "c19.go",
+          "line": 1,
+          "p": 0.38,
+          "text": "--- a/c19.go",
+          "observed_seconds": 1.683992334001232,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 2,
+          "p": 0.3,
+          "text": "+++ b/c19.go",
+          "observed_seconds": 1.6840038340014871,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 3,
+          "p": 0.21,
+          "text": "@@ -1,7 +1,4 @@",
+          "observed_seconds": 1.6840142919973005,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 4,
+          "p": 0.11,
+          "text": " func render() string {",
+          "observed_seconds": 1.6840245420025894,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 5,
+          "p": 0.15,
+          "text": "-    text, err := Render(template)",
+          "observed_seconds": 1.6840350419952301,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 6,
+          "p": 0.2,
+          "text": "-    if err != nil {",
+          "observed_seconds": 1.684044958994491,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 7,
+          "p": 0.39,
+          "text": "-        log.Print(err)",
+          "observed_seconds": 1.6840559590054909,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 8,
+          "p": 0.28,
+          "text": "-    }",
+          "observed_seconds": 1.6840660419984488,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 9,
+          "p": 0.33,
+          "text": "+    text, _ := Render(template)",
+          "observed_seconds": 1.6840773339936277,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 10,
+          "p": 0.27,
+          "text": "     return text",
+          "observed_seconds": 1.684089166999911,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 11,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 1.6840990000055172,
+          "case": "c19"
+        },
+        {
+          "file": "c20.go",
+          "line": 1,
+          "p": 0.37,
+          "text": "--- a/c20.go",
+          "observed_seconds": 1.6841091669921298,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 2,
+          "p": 0.28,
+          "text": "+++ b/c20.go",
+          "observed_seconds": 1.6841196669993224,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 3,
+          "p": 0.19,
+          "text": "@@ -1,3 +1,4 @@",
+          "observed_seconds": 1.6841296670027077,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 4,
+          "p": 0.2,
+          "text": " func save() error {",
+          "observed_seconds": 1.6841421669960255,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 5,
+          "p": 0.31,
+          "text": "-    return SaveConfig()",
+          "observed_seconds": 1.6841522500035353,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 6,
+          "p": 0.45,
+          "text": "+    err := SaveConfig()",
+          "observed_seconds": 1.684166417006054,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 7,
+          "p": 0.29,
+          "text": "+    return err",
+          "observed_seconds": 1.6841767919977428,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 8,
+          "p": 0.32,
+          "text": " }",
+          "observed_seconds": 1.6841865000023972,
+          "case": "c20"
+        }
+      ],
+      "diagnostics": ""
+    },
+    {
+      "mode": "added_lines",
+      "task": "a change that causes a persistent state write or rollback operation to have its failure silently ignored, where that failure was previously returned, logged, or otherwise handled",
+      "threshold": 0.5,
+      "seconds": 0.969676167005673,
+      "first_useful_seconds": 0.2802133329969365,
+      "case_precision": 0.6666666666666666,
+      "case_recall": 0.75,
+      "true_positive_cases": [
+        "c02",
+        "c03",
+        "c04",
+        "c05",
+        "c06",
+        "c08"
+      ],
+      "false_positive_cases": [
+        "c12",
+        "c14",
+        "c16"
+      ],
+      "missed_positive_cases": [
+        "c01",
+        "c07"
+      ],
+      "records_to_review": 11,
+      "records_from_negative_cases": 3,
+      "median_call_seconds": 0.32290725000348175,
+      "meter": {
+        "calls": 24,
+        "cached": 3,
+        "retries": 0,
+        "input_tokens": 7461,
+        "cost": 0.00031336199999999997,
+        "model": "typesafe/jev-1.13-20260917"
+      },
+      "rows": [
+        {
+          "file": "c01.go",
+          "line": 1,
+          "p": 0.24,
+          "text": "    SaveConfig()",
+          "observed_seconds": 0.2608192500047153,
+          "case": "c01"
+        },
+        {
+          "file": "c02.go",
+          "line": 1,
+          "p": 0.56,
+          "text": "    _ = err",
+          "observed_seconds": 0.2802133329969365,
+          "case": "c02"
+        },
+        {
+          "file": "c03.go",
+          "line": 1,
+          "p": 0.71,
+          "text": "    _ = os.Rename(backup, original)",
+          "observed_seconds": 0.2909473750041798,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 2,
+          "p": 0.51,
+          "text": "    return nil",
+          "observed_seconds": 0.775167291998514,
+          "case": "c03"
+        },
+        {
+          "file": "c04.go",
+          "line": 1,
+          "p": 0.57,
+          "text": "    _ = history.AddMessage(message)",
+          "observed_seconds": 0.7752024170040386,
+          "case": "c04"
+        },
+        {
+          "file": "c05.go",
+          "line": 1,
+          "p": 0.55,
+          "text": "    defer tx.Commit()",
+          "observed_seconds": 0.7752205830038292,
+          "case": "c05"
+        },
+        {
+          "file": "c06.go",
+          "line": 1,
+          "p": 0.55,
+          "text": "        return nil",
+          "observed_seconds": 0.7752371670067078,
+          "case": "c06"
+        },
+        {
+          "file": "c07.go",
+          "line": 1,
+          "p": 0.21,
+          "text": "    store.Put(key, value)",
+          "observed_seconds": 0.7752524579991587,
+          "case": "c07"
+        },
+        {
+          "file": "c08.go",
+          "line": 1,
+          "p": 0.56,
+          "text": "    _ = err",
+          "observed_seconds": 0.7752662080019945,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 2,
+          "p": 0.51,
+          "text": "    return nil",
+          "observed_seconds": 0.7752983329992276,
+          "case": "c08"
+        },
+        {
+          "file": "c09.go",
+          "line": 1,
+          "p": 0.27,
+          "text": "    if err := SaveConfig(); err != nil {",
+          "observed_seconds": 0.7753111250058282,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 2,
+          "p": 0.38,
+          "text": "        return err",
+          "observed_seconds": 0.7753227500070352,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 3,
+          "p": 0.29,
+          "text": "    }",
+          "observed_seconds": 0.7753389580029761,
+          "case": "c09"
+        },
+        {
+          "file": "c10.go",
+          "line": 1,
+          "p": 0.36,
+          "text": "    return SaveConfig()",
+          "observed_seconds": 0.7753545000014128,
+          "case": "c10"
+        },
+        {
+          "file": "c11.go",
+          "line": 1,
+          "p": 0.14,
+          "text": "    delete(options, \"extra_body\")",
+          "observed_seconds": 0.775371208001161,
+          "case": "c11"
+        },
+        {
+          "file": "c12.go",
+          "line": 1,
+          "p": 0.19,
+          "text": "// Temporary scratch files are cleaned up best-effort.",
+          "observed_seconds": 0.7753866249986459,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 2,
+          "p": 0.7,
+          "text": "    _ = os.Remove(tempFile)",
+          "observed_seconds": 0.7754020830034278,
+          "case": "c12"
+        },
+        {
+          "file": "c13.go",
+          "line": 1,
+          "p": 0.17,
+          "text": "        log.Printf(\"saving failed: %v\", err)",
+          "observed_seconds": 0.7754170420084847,
+          "case": "c13"
+        },
+        {
+          "file": "c14.go",
+          "line": 1,
+          "p": 0.52,
+          "text": "// Previously this silently ignored config write failures.",
+          "observed_seconds": 0.7754320420062868,
+          "case": "c14"
+        },
+        {
+          "file": "c15.go",
+          "line": 1,
+          "p": 0.14,
+          "text": "// Save the current configuration.",
+          "observed_seconds": 0.7754453329980606,
+          "case": "c15"
+        },
+        {
+          "file": "c16.go",
+          "line": 1,
+          "p": 0.61,
+          "text": "    _ = store.Put(newKey, value)",
+          "observed_seconds": 0.77546083299967,
+          "case": "c16"
+        },
+        {
+          "file": "c18.go",
+          "line": 1,
+          "p": 0.17,
+          "text": "func create() error {",
+          "observed_seconds": 0.7754753330082167,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 2,
+          "p": 0.36,
+          "text": "    return SaveConfig()",
+          "observed_seconds": 0.7754877920087893,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 3,
+          "p": 0.36,
+          "text": "}",
+          "observed_seconds": 0.7754987920052372,
+          "case": "c18"
+        },
+        {
+          "file": "c19.go",
+          "line": 1,
+          "p": 0.22,
+          "text": "    text, _ := Render(template)",
+          "observed_seconds": 0.8270602920092642,
+          "case": "c19"
+        },
+        {
+          "file": "c20.go",
+          "line": 1,
+          "p": 0.4,
+          "text": "    err := SaveConfig()",
+          "observed_seconds": 0.827088250007364,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 2,
+          "p": 0.38,
+          "text": "    return err",
+          "observed_seconds": 0.9670740419969661,
+          "case": "c20"
+        }
+      ],
+      "diagnostics": ""
+    },
+    {
+      "mode": "diff_hunks",
+      "task": "a change that causes a persistent state write or rollback operation to have its failure silently ignored, where that failure was previously returned, logged, or otherwise handled",
+      "threshold": 0.5,
+      "seconds": 0.865611874993192,
+      "first_useful_seconds": 0.8595557499938877,
+      "case_precision": 0.8,
+      "case_recall": 1.0,
+      "true_positive_cases": [
+        "c01",
+        "c02",
+        "c03",
+        "c04",
+        "c05",
+        "c06",
+        "c07",
+        "c08"
+      ],
+      "false_positive_cases": [
+        "c12",
+        "c19"
+      ],
+      "missed_positive_cases": [],
+      "records_to_review": 10,
+      "records_from_negative_cases": 2,
+      "median_call_seconds": 0.28133777050243225,
+      "meter": {
+        "calls": 20,
+        "cached": 0,
+        "retries": 0,
+        "input_tokens": 8707,
+        "cost": 0.000365694,
+        "model": "typesafe/jev-1.13-20260917"
+      },
+      "rows": [
+        {
+          "file": "c01.go",
+          "line": 3,
+          "p": 0.97,
+          "text": "--- a/c01.go\n+++ b/c01.go\n@@ -1,6 +1,4 @@\n func update() error {\n-    if err := SaveConfig(); err != nil {\n-        return err\n-    }\n+    SaveConfig()\n     return nil\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c01.go",
+            "new_file": "c01.go",
+            "old_start": 1,
+            "old_count": 6,
+            "new_start": 1,
+            "new_count": 4
+          },
+          "end_line": 10,
+          "observed_seconds": 0.8595557499938877,
+          "case": "c01"
+        },
+        {
+          "file": "c02.go",
+          "line": 3,
+          "p": 0.97,
+          "text": "--- a/c02.go\n+++ b/c02.go\n@@ -1,7 +1,5 @@\n func save() error {\n     err := SaveConfig()\n-    if err != nil {\n-        return err\n-    }\n+    _ = err\n     return nil\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c02.go",
+            "new_file": "c02.go",
+            "old_start": 1,
+            "old_count": 7,
+            "new_start": 1,
+            "new_count": 5
+          },
+          "end_line": 11,
+          "observed_seconds": 0.8595999160024803,
+          "case": "c02"
+        },
+        {
+          "file": "c03.go",
+          "line": 3,
+          "p": 0.98,
+          "text": "--- a/c03.go\n+++ b/c03.go\n@@ -1,3 +1,4 @@\n func rollback() error {\n-    return os.Rename(backup, original)\n+    _ = os.Rename(backup, original)\n+    return nil\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c03.go",
+            "new_file": "c03.go",
+            "old_start": 1,
+            "old_count": 3,
+            "new_start": 1,
+            "new_count": 4
+          },
+          "end_line": 8,
+          "observed_seconds": 0.8596283749939175,
+          "case": "c03"
+        },
+        {
+          "file": "c04.go",
+          "line": 3,
+          "p": 0.96,
+          "text": "--- a/c04.go\n+++ b/c04.go\n@@ -1,5 +1,3 @@\n func remember() {\n-    if err := history.AddMessage(message); err != nil {\n-        log.Print(err)\n-    }\n+    _ = history.AddMessage(message)\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c04.go",
+            "new_file": "c04.go",
+            "old_start": 1,
+            "old_count": 5,
+            "new_start": 1,
+            "new_count": 3
+          },
+          "end_line": 9,
+          "observed_seconds": 0.8596547909983201,
+          "case": "c04"
+        },
+        {
+          "file": "c05.go",
+          "line": 3,
+          "p": 0.9,
+          "text": "--- a/c05.go\n+++ b/c05.go\n@@ -1,7 +1,3 @@\n func persist() {\n-    defer func() {\n-        if err := tx.Commit(); err != nil {\n-            log.Print(err)\n-        }\n-    }()\n+    defer tx.Commit()\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c05.go",
+            "new_file": "c05.go",
+            "old_start": 1,
+            "old_count": 7,
+            "new_start": 1,
+            "new_count": 3
+          },
+          "end_line": 11,
+          "observed_seconds": 0.8596812909963774,
+          "case": "c05"
+        },
+        {
+          "file": "c06.go",
+          "line": 3,
+          "p": 0.98,
+          "text": "--- a/c06.go\n+++ b/c06.go\n@@ -1,6 +1,6 @@\n func save() error {\n     if err := os.WriteFile(configPath, config, 0600); err != nil {\n-        return err\n+        return nil\n     }\n     return nil\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c06.go",
+            "new_file": "c06.go",
+            "old_start": 1,
+            "old_count": 6,
+            "new_start": 1,
+            "new_count": 6
+          },
+          "end_line": 10,
+          "observed_seconds": 0.8597099579928908,
+          "case": "c06"
+        },
+        {
+          "file": "c07.go",
+          "line": 3,
+          "p": 0.97,
+          "text": "--- a/c07.go\n+++ b/c07.go\n@@ -1,6 +1,4 @@\n func save() error {\n-    if err := store.Put(key, value); err != nil {\n-        return fmt.Errorf(\"save: %w\", err)\n-    }\n+    store.Put(key, value)\n     return nil\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c07.go",
+            "new_file": "c07.go",
+            "old_start": 1,
+            "old_count": 6,
+            "new_start": 1,
+            "new_count": 4
+          },
+          "end_line": 10,
+          "observed_seconds": 0.8597363329899963,
+          "case": "c07"
+        },
+        {
+          "file": "c08.go",
+          "line": 3,
+          "p": 0.98,
+          "text": "--- a/c08.go\n+++ b/c08.go\n@@ -1,4 +1,5 @@\n func rollback() error {\n     err := restoreSnapshot(backup)\n-    return err\n+    _ = err\n+    return nil\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c08.go",
+            "new_file": "c08.go",
+            "old_start": 1,
+            "old_count": 4,
+            "new_start": 1,
+            "new_count": 5
+          },
+          "end_line": 9,
+          "observed_seconds": 0.8597611250006594,
+          "case": "c08"
+        },
+        {
+          "file": "c09.go",
+          "line": 3,
+          "p": 0.02,
+          "text": "--- a/c09.go\n+++ b/c09.go\n@@ -1,4 +1,6 @@\n func update() error {\n-    SaveConfig()\n+    if err := SaveConfig(); err != nil {\n+        return err\n+    }\n     return nil\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c09.go",
+            "new_file": "c09.go",
+            "old_start": 1,
+            "old_count": 4,
+            "new_start": 1,
+            "new_count": 6
+          },
+          "end_line": 10,
+          "observed_seconds": 0.8597844999894733,
+          "case": "c09"
+        },
+        {
+          "file": "c10.go",
+          "line": 3,
+          "p": 0.07,
+          "text": "--- a/c10.go\n+++ b/c10.go\n@@ -1,6 +1,3 @@\n func update() error {\n-    if err := SaveConfig(); err != nil {\n-        return err\n-    }\n-    return nil\n+    return SaveConfig()\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c10.go",
+            "new_file": "c10.go",
+            "old_start": 1,
+            "old_count": 6,
+            "new_start": 1,
+            "new_count": 3
+          },
+          "end_line": 10,
+          "observed_seconds": 0.8598115829954622,
+          "case": "c10"
+        },
+        {
+          "file": "c11.go",
+          "line": 3,
+          "p": 0.02,
+          "text": "--- a/c11.go\n+++ b/c11.go\n@@ -1,3 +1,3 @@\n func clean() {\n-    delete(options, \"unused\")\n+    delete(options, \"extra_body\")\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c11.go",
+            "new_file": "c11.go",
+            "old_start": 1,
+            "old_count": 3,
+            "new_start": 1,
+            "new_count": 3
+          },
+          "end_line": 7,
+          "observed_seconds": 0.8598342499899445,
+          "case": "c11"
+        },
+        {
+          "file": "c12.go",
+          "line": 3,
+          "p": 0.91,
+          "text": "--- a/c12.go\n+++ b/c12.go\n@@ -1,5 +1,4 @@\n+// Temporary scratch files are cleaned up best-effort.\n func finish() {\n-    if err := os.Remove(tempFile); err != nil {\n-        log.Print(err)\n-    }\n+    _ = os.Remove(tempFile)\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c12.go",
+            "new_file": "c12.go",
+            "old_start": 1,
+            "old_count": 5,
+            "new_start": 1,
+            "new_count": 4
+          },
+          "end_line": 10,
+          "observed_seconds": 0.8598626659950241,
+          "case": "c12"
+        },
+        {
+          "file": "c13.go",
+          "line": 3,
+          "p": 0.06,
+          "text": "--- a/c13.go\n+++ b/c13.go\n@@ -1,5 +1,5 @@\n func save() {\n     if err := SaveConfig(); err != nil {\n-        log.Print(err)\n+        log.Printf(\"saving failed: %v\", err)\n     }\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c13.go",
+            "new_file": "c13.go",
+            "old_start": 1,
+            "old_count": 5,
+            "new_start": 1,
+            "new_count": 5
+          },
+          "end_line": 9,
+          "observed_seconds": 0.859888790990226,
+          "case": "c13"
+        },
+        {
+          "file": "c14.go",
+          "line": 3,
+          "p": 0.05,
+          "text": "--- a/c14.go\n+++ b/c14.go\n@@ -1,3 +1,4 @@\n+// Previously this silently ignored config write failures.\n func save() error {\n     return SaveConfig()\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c14.go",
+            "new_file": "c14.go",
+            "old_start": 1,
+            "old_count": 3,
+            "new_start": 1,
+            "new_count": 4
+          },
+          "end_line": 7,
+          "observed_seconds": 0.8599116249970393,
+          "case": "c14"
+        },
+        {
+          "file": "c15.go",
+          "line": 3,
+          "p": 0.04,
+          "text": "--- a/c15.go\n+++ b/c15.go\n@@ -1,4 +1,4 @@\n-// Save state.\n+// Save the current configuration.\n func save() error {\n     _ = SaveConfig()\n     return nil\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c15.go",
+            "new_file": "c15.go",
+            "old_start": 1,
+            "old_count": 4,
+            "new_start": 1,
+            "new_count": 4
+          },
+          "end_line": 8,
+          "observed_seconds": 0.8599366249982268,
+          "case": "c15"
+        },
+        {
+          "file": "c16.go",
+          "line": 3,
+          "p": 0.05,
+          "text": "--- a/c16.go\n+++ b/c16.go\n@@ -1,4 +1,4 @@\n func save() error {\n-    _ = store.Put(oldKey, value)\n+    _ = store.Put(newKey, value)\n     return nil\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c16.go",
+            "new_file": "c16.go",
+            "old_start": 1,
+            "old_count": 4,
+            "new_start": 1,
+            "new_count": 4
+          },
+          "end_line": 8,
+          "observed_seconds": 0.8599602079921169,
+          "case": "c16"
+        },
+        {
+          "file": "c17.go",
+          "line": 3,
+          "p": 0.19,
+          "text": "--- a/c17.go\n+++ b/c17.go\n@@ -1,3 +0,0 @@\n-func obsolete() error {\n-    return SaveConfig()\n-}\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c17.go",
+            "new_file": "c17.go",
+            "old_start": 1,
+            "old_count": 3,
+            "new_start": 0,
+            "new_count": 0
+          },
+          "end_line": 6,
+          "observed_seconds": 0.8599882080015959,
+          "case": "c17"
+        },
+        {
+          "file": "c18.go",
+          "line": 3,
+          "p": 0.11,
+          "text": "--- a/c18.go\n+++ b/c18.go\n@@ -0,0 +1,3 @@\n+func create() error {\n+    return SaveConfig()\n+}\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c18.go",
+            "new_file": "c18.go",
+            "old_start": 0,
+            "old_count": 0,
+            "new_start": 1,
+            "new_count": 3
+          },
+          "end_line": 6,
+          "observed_seconds": 0.8600105410005199,
+          "case": "c18"
+        },
+        {
+          "file": "c19.go",
+          "line": 3,
+          "p": 0.59,
+          "text": "--- a/c19.go\n+++ b/c19.go\n@@ -1,7 +1,4 @@\n func render() string {\n-    text, err := Render(template)\n-    if err != nil {\n-        log.Print(err)\n-    }\n+    text, _ := Render(template)\n     return text\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c19.go",
+            "new_file": "c19.go",
+            "old_start": 1,
+            "old_count": 7,
+            "new_start": 1,
+            "new_count": 4
+          },
+          "end_line": 11,
+          "observed_seconds": 0.8600352079956792,
+          "case": "c19"
+        },
+        {
+          "file": "c20.go",
+          "line": 3,
+          "p": 0.01,
+          "text": "--- a/c20.go\n+++ b/c20.go\n@@ -1,3 +1,4 @@\n func save() error {\n-    return SaveConfig()\n+    err := SaveConfig()\n+    return err\n }\n",
+          "unit": {
+            "kind": "diff",
+            "hunk": 1,
+            "old_file": "c20.go",
+            "new_file": "c20.go",
+            "old_start": 1,
+            "old_count": 3,
+            "new_start": 1,
+            "new_count": 4
+          },
+          "end_line": 8,
+          "observed_seconds": 0.8600594159943284,
+          "case": "c20"
+        }
+      ],
+      "diagnostics": ""
+    },
+    {
+      "mode": "function_lines",
+      "task": "a function that silently ignores a failure from a persistent state write or rollback operation instead of returning, logging, or otherwise handling the error",
+      "threshold": 0.5,
+      "seconds": 1.2679857080074726,
+      "first_useful_seconds": 0.3821997080085566,
+      "case_precision": 0.75,
+      "case_recall": 0.9,
+      "true_positive_cases": [
+        "c01",
+        "c02",
+        "c03",
+        "c05",
+        "c06",
+        "c07",
+        "c08",
+        "c15",
+        "c16"
+      ],
+      "false_positive_cases": [
+        "c09",
+        "c12",
+        "c14"
+      ],
+      "missed_positive_cases": [
+        "c04"
+      ],
+      "records_to_review": 17,
+      "records_from_negative_cases": 3,
+      "median_call_seconds": 0.25092716699873563,
+      "meter": {
+        "calls": 49,
+        "cached": 50,
+        "retries": 0,
+        "input_tokens": 14996,
+        "cost": 0.0006298320000000001,
+        "model": "typesafe/jev-1.13-20260917"
+      },
+      "rows": [
+        {
+          "file": "c01.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.3821265000005951,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.3821534160088049,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 3,
+          "p": 0.15,
+          "text": "func update() error {",
+          "observed_seconds": 0.3821694159996696,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 4,
+          "p": 0.29,
+          "text": "    SaveConfig()",
+          "observed_seconds": 0.3821838750009192,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 5,
+          "p": 0.63,
+          "text": "    return nil",
+          "observed_seconds": 0.3821997080085566,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 6,
+          "p": 0.34,
+          "text": "}",
+          "observed_seconds": 0.3822122080018744,
+          "case": "c01"
+        },
+        {
+          "file": "c02.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.3822405829996569,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.38225450000027195,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 3,
+          "p": 0.17,
+          "text": "func save() error {",
+          "observed_seconds": 0.8526317500072764,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 4,
+          "p": 0.38,
+          "text": "    err := SaveConfig()",
+          "observed_seconds": 0.8526583750062855,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 5,
+          "p": 0.56,
+          "text": "    _ = err",
+          "observed_seconds": 0.8526726249983767,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 6,
+          "p": 0.63,
+          "text": "    return nil",
+          "observed_seconds": 0.8526857910037506,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 7,
+          "p": 0.34,
+          "text": "}",
+          "observed_seconds": 0.8526991660037311,
+          "case": "c02"
+        },
+        {
+          "file": "c03.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.8527115410106489,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.8527228330058279,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 3,
+          "p": 0.11,
+          "text": "func rollback() error {",
+          "observed_seconds": 0.8527343750029104,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 4,
+          "p": 0.63,
+          "text": "    _ = os.Rename(backup, original)",
+          "observed_seconds": 0.8527497080067405,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 5,
+          "p": 0.63,
+          "text": "    return nil",
+          "observed_seconds": 0.8527660000108881,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 6,
+          "p": 0.34,
+          "text": "}",
+          "observed_seconds": 0.8527779580035713,
+          "case": "c03"
+        },
+        {
+          "file": "c04.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.8527904160000617,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.8528031250025379,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 3,
+          "p": 0.27,
+          "text": "func remember() {",
+          "observed_seconds": 0.8528145000018412,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 4,
+          "p": 0.44,
+          "text": "    _ = history.AddMessage(message)",
+          "observed_seconds": 0.852827791008167,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 5,
+          "p": 0.34,
+          "text": "}",
+          "observed_seconds": 0.8528387500118697,
+          "case": "c04"
+        },
+        {
+          "file": "c05.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.8528493750054622,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.8528633329988224,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 3,
+          "p": 0.41,
+          "text": "func persist() {",
+          "observed_seconds": 0.8528748750104569,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 4,
+          "p": 0.7,
+          "text": "    defer tx.Commit()",
+          "observed_seconds": 0.8528879160003271,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 5,
+          "p": 0.34,
+          "text": "}",
+          "observed_seconds": 0.8528986660094233,
+          "case": "c05"
+        },
+        {
+          "file": "c06.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.8529114160046447,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.852921375000733,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 3,
+          "p": 0.17,
+          "text": "func save() error {",
+          "observed_seconds": 0.8529492079978809,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 4,
+          "p": 0.06,
+          "text": "    if err := os.WriteFile(configPath, config, 0600); err != nil {",
+          "observed_seconds": 0.8529650410055183,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 5,
+          "p": 0.58,
+          "text": "        return nil",
+          "observed_seconds": 0.8529761250101728,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 6,
+          "p": 0.3,
+          "text": "    }",
+          "observed_seconds": 0.8529872500075726,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 7,
+          "p": 0.63,
+          "text": "    return nil",
+          "observed_seconds": 0.8529982910113176,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 8,
+          "p": 0.34,
+          "text": "}",
+          "observed_seconds": 0.853009666010621,
+          "case": "c06"
+        },
+        {
+          "file": "c07.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.8530216250073863,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.8530317500117235,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 3,
+          "p": 0.17,
+          "text": "func save() error {",
+          "observed_seconds": 0.8530544160021236,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 4,
+          "p": 0.4,
+          "text": "    store.Put(key, value)",
+          "observed_seconds": 0.8530683330027387,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 5,
+          "p": 0.63,
+          "text": "    return nil",
+          "observed_seconds": 0.8530815000121947,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 6,
+          "p": 0.34,
+          "text": "}",
+          "observed_seconds": 0.8530925410013879,
+          "case": "c07"
+        },
+        {
+          "file": "c08.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.853103875007946,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.8531139160040766,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 3,
+          "p": 0.1,
+          "text": "func rollback() error {",
+          "observed_seconds": 1.2502741659991443,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 4,
+          "p": 0.48,
+          "text": "    err := restoreSnapshot(backup)",
+          "observed_seconds": 1.2502853750047507,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 5,
+          "p": 0.56,
+          "text": "    _ = err",
+          "observed_seconds": 1.2502920410042861,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 6,
+          "p": 0.63,
+          "text": "    return nil",
+          "observed_seconds": 1.2502965830062749,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 7,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.2503004160098499,
+          "case": "c08"
+        },
+        {
+          "file": "c09.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2503060000017285,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.2503100410103798,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 3,
+          "p": 0.17,
+          "text": "func update() error {",
+          "observed_seconds": 1.2503141659981338,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 4,
+          "p": 0.11,
+          "text": "    if err := SaveConfig(); err != nil {",
+          "observed_seconds": 1.2503182910004398,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 5,
+          "p": 0.07,
+          "text": "        return err",
+          "observed_seconds": 1.2503222500090487,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 6,
+          "p": 0.3,
+          "text": "    }",
+          "observed_seconds": 1.2503259160002926,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 7,
+          "p": 0.63,
+          "text": "    return nil",
+          "observed_seconds": 1.2503299579984741,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 8,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.250333458010573,
+          "case": "c09"
+        },
+        {
+          "file": "c10.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2503376660024514,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.2503420830034884,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 3,
+          "p": 0.17,
+          "text": "func update() error {",
+          "observed_seconds": 1.2503463330067461,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 4,
+          "p": 0.4,
+          "text": "    return SaveConfig()",
+          "observed_seconds": 1.2503511250106385,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 5,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.250355333002517,
+          "case": "c10"
+        },
+        {
+          "file": "c11.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2503613330045482,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.250365125000826,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 3,
+          "p": 0.28,
+          "text": "func clean() {",
+          "observed_seconds": 1.250368958004401,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 4,
+          "p": 0.15,
+          "text": "    delete(options, \"extra_body\")",
+          "observed_seconds": 1.2503729160089279,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 5,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.2503763749991776,
+          "case": "c11"
+        },
+        {
+          "file": "c12.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2503798750112765,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.250383333011996,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 3,
+          "p": 0.38,
+          "text": "// Temporary scratch files are cleaned up best-effort.",
+          "observed_seconds": 1.2503872500092257,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 4,
+          "p": 0.29,
+          "text": "func finish() {",
+          "observed_seconds": 1.2503909160004696,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 5,
+          "p": 0.63,
+          "text": "    _ = os.Remove(tempFile)",
+          "observed_seconds": 1.2503945830103476,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 6,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.2503982500056736,
+          "case": "c12"
+        },
+        {
+          "file": "c13.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2504024160007248,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.2504066250112373,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 3,
+          "p": 0.36,
+          "text": "func save() {",
+          "observed_seconds": 1.250411166009144,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 4,
+          "p": 0.11,
+          "text": "    if err := SaveConfig(); err != nil {",
+          "observed_seconds": 1.2504156659997534,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 5,
+          "p": 0.04,
+          "text": "        log.Printf(\"saving failed: %v\", err)",
+          "observed_seconds": 1.2504196250083623,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 6,
+          "p": 0.3,
+          "text": "    }",
+          "observed_seconds": 1.2504245410091244,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 7,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.2504282080044504,
+          "case": "c13"
+        },
+        {
+          "file": "c14.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2504319160070736,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.2504350829985924,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 3,
+          "p": 0.87,
+          "text": "// Previously this silently ignored config write failures.",
+          "observed_seconds": 1.250439000010374,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 4,
+          "p": 0.17,
+          "text": "func save() error {",
+          "observed_seconds": 1.250442666001618,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 5,
+          "p": 0.4,
+          "text": "    return SaveConfig()",
+          "observed_seconds": 1.2504463750083232,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 6,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.2504501250077737,
+          "case": "c14"
+        },
+        {
+          "file": "c15.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2504535000043688,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.250456875000964,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 3,
+          "p": 0.2,
+          "text": "// Save the current configuration.",
+          "observed_seconds": 1.2504610000032699,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 4,
+          "p": 0.17,
+          "text": "func save() error {",
+          "observed_seconds": 1.2504648750036722,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 5,
+          "p": 0.32,
+          "text": "    _ = SaveConfig()",
+          "observed_seconds": 1.2504693750088336,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 6,
+          "p": 0.63,
+          "text": "    return nil",
+          "observed_seconds": 1.250473874999443,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 7,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.2504785409983015,
+          "case": "c15"
+        },
+        {
+          "file": "c16.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2504827080119867,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.25048687501112,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 3,
+          "p": 0.17,
+          "text": "func save() error {",
+          "observed_seconds": 1.2504904579982394,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 4,
+          "p": 0.66,
+          "text": "    _ = store.Put(newKey, value)",
+          "observed_seconds": 1.2504939580103382,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 5,
+          "p": 0.63,
+          "text": "    return nil",
+          "observed_seconds": 1.2504973750037607,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 6,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.2505014580092393,
+          "case": "c16"
+        },
+        {
+          "file": "c17.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2505052080086898,
+          "case": "c17"
+        },
+        {
+          "file": "c17.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.2505086250021122,
+          "case": "c17"
+        },
+        {
+          "file": "c18.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2505123330047354,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.2505157080013305,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 3,
+          "p": 0.18,
+          "text": "func create() error {",
+          "observed_seconds": 1.2505193329998292,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 4,
+          "p": 0.43,
+          "text": "    return SaveConfig()",
+          "observed_seconds": 1.2505230410024524,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 5,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.2505264159990475,
+          "case": "c18"
+        },
+        {
+          "file": "c19.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.2505305410013534,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.2505348330014385,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 3,
+          "p": 0.13,
+          "text": "func render() string {",
+          "observed_seconds": 1.2505397500062827,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 4,
+          "p": 0.25,
+          "text": "    text, _ := Render(template)",
+          "observed_seconds": 1.250545000002603,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 5,
+          "p": 0.24,
+          "text": "    return text",
+          "observed_seconds": 1.250549750009668,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 6,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.250554333004402,
+          "case": "c19"
+        },
+        {
+          "file": "c20.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.250557833001949,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.250561207998544,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 3,
+          "p": 0.17,
+          "text": "func save() error {",
+          "observed_seconds": 1.2505650000093738,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 4,
+          "p": 0.46,
+          "text": "    err := SaveConfig()",
+          "observed_seconds": 1.2669888750097016,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 5,
+          "p": 0.07,
+          "text": "    return err",
+          "observed_seconds": 1.2669974160089623,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 6,
+          "p": 0.32,
+          "text": "}",
+          "observed_seconds": 1.2670032910100417,
+          "case": "c20"
+        }
+      ],
+      "diagnostics": ""
+    },
+    {
+      "mode": "function_line_context",
+      "task": "a function that silently ignores a failure from a persistent state write or rollback operation instead of returning, logging, or otherwise handling the error",
+      "threshold": 0.5,
+      "seconds": 1.569664125010604,
+      "first_useful_seconds": 0.2775170840031933,
+      "case_precision": 0.9090909090909091,
+      "case_recall": 1.0,
+      "true_positive_cases": [
+        "c01",
+        "c02",
+        "c03",
+        "c04",
+        "c05",
+        "c06",
+        "c07",
+        "c08",
+        "c15",
+        "c16"
+      ],
+      "false_positive_cases": [
+        "c12"
+      ],
+      "missed_positive_cases": [],
+      "records_to_review": 45,
+      "records_from_negative_cases": 4,
+      "median_call_seconds": 0.2590230205023545,
+      "meter": {
+        "calls": 94,
+        "cached": 5,
+        "retries": 0,
+        "input_tokens": 32892,
+        "cost": 0.0013814640000000002,
+        "model": "typesafe/jev-1.13-20260917"
+      },
+      "rows": [
+        {
+          "file": "c01.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.21304225000494625,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.21305633400334045,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 3,
+          "p": 0.91,
+          "text": "func update() error {",
+          "observed_seconds": 0.2775170840031933,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 4,
+          "p": 0.95,
+          "text": "    SaveConfig()",
+          "observed_seconds": 0.34661687500192784,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 5,
+          "p": 0.87,
+          "text": "    return nil",
+          "observed_seconds": 0.3466302090091631,
+          "case": "c01"
+        },
+        {
+          "file": "c01.go",
+          "line": 6,
+          "p": 0.6,
+          "text": "}",
+          "observed_seconds": 0.36145987499912735,
+          "case": "c01"
+        },
+        {
+          "file": "c02.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 0.3614722090133,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.36148658400634304,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 3,
+          "p": 0.85,
+          "text": "func save() error {",
+          "observed_seconds": 0.3614966250024736,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 4,
+          "p": 0.94,
+          "text": "    err := SaveConfig()",
+          "observed_seconds": 0.3615071250096662,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 5,
+          "p": 0.94,
+          "text": "    _ = err",
+          "observed_seconds": 0.36151504200825,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 6,
+          "p": 0.75,
+          "text": "    return nil",
+          "observed_seconds": 0.3615235840115929,
+          "case": "c02"
+        },
+        {
+          "file": "c02.go",
+          "line": 7,
+          "p": 0.74,
+          "text": "}",
+          "observed_seconds": 0.3615319590026047,
+          "case": "c02"
+        },
+        {
+          "file": "c03.go",
+          "line": 1,
+          "p": 0.09,
+          "text": "package main",
+          "observed_seconds": 0.3615404170122929,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.3615480000007665,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 3,
+          "p": 0.91,
+          "text": "func rollback() error {",
+          "observed_seconds": 0.3615561670012539,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 4,
+          "p": 0.96,
+          "text": "    _ = os.Rename(backup, original)",
+          "observed_seconds": 0.36156637500971556,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 5,
+          "p": 0.87,
+          "text": "    return nil",
+          "observed_seconds": 0.36157516700041015,
+          "case": "c03"
+        },
+        {
+          "file": "c03.go",
+          "line": 6,
+          "p": 0.67,
+          "text": "}",
+          "observed_seconds": 0.3615832089999458,
+          "case": "c03"
+        },
+        {
+          "file": "c04.go",
+          "line": 1,
+          "p": 0.1,
+          "text": "package main",
+          "observed_seconds": 0.36159108400170226,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.36159900001075584,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 3,
+          "p": 0.94,
+          "text": "func remember() {",
+          "observed_seconds": 0.3616070420102915,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 4,
+          "p": 0.91,
+          "text": "    _ = history.AddMessage(message)",
+          "observed_seconds": 0.7682289170043077,
+          "case": "c04"
+        },
+        {
+          "file": "c04.go",
+          "line": 5,
+          "p": 0.85,
+          "text": "}",
+          "observed_seconds": 0.7682547500007786,
+          "case": "c04"
+        },
+        {
+          "file": "c05.go",
+          "line": 1,
+          "p": 0.1,
+          "text": "package main",
+          "observed_seconds": 0.7682673750096001,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 0.7682848750118865,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 3,
+          "p": 0.8,
+          "text": "func persist() {",
+          "observed_seconds": 0.7682960840029409,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 4,
+          "p": 0.83,
+          "text": "    defer tx.Commit()",
+          "observed_seconds": 1.5647792920062784,
+          "case": "c05"
+        },
+        {
+          "file": "c05.go",
+          "line": 5,
+          "p": 0.78,
+          "text": "}",
+          "observed_seconds": 1.564810125011718,
+          "case": "c05"
+        },
+        {
+          "file": "c06.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.564828500006115,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5648436670016963,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 3,
+          "p": 0.92,
+          "text": "func save() error {",
+          "observed_seconds": 1.564857250006753,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 4,
+          "p": 0.91,
+          "text": "    if err := os.WriteFile(configPath, config, 0600); err != nil {",
+          "observed_seconds": 1.5648810000129743,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 5,
+          "p": 0.96,
+          "text": "        return nil",
+          "observed_seconds": 1.5648944999993546,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 6,
+          "p": 0.67,
+          "text": "    }",
+          "observed_seconds": 1.5649082500021905,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 7,
+          "p": 0.45,
+          "text": "    return nil",
+          "observed_seconds": 1.564921459008474,
+          "case": "c06"
+        },
+        {
+          "file": "c06.go",
+          "line": 8,
+          "p": 0.39,
+          "text": "}",
+          "observed_seconds": 1.564933250003378,
+          "case": "c06"
+        },
+        {
+          "file": "c07.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.564946709011565,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5649581250036135,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 3,
+          "p": 0.92,
+          "text": "func save() error {",
+          "observed_seconds": 1.5649708340060897,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 4,
+          "p": 0.94,
+          "text": "    store.Put(key, value)",
+          "observed_seconds": 1.5649865420127753,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 5,
+          "p": 0.87,
+          "text": "    return nil",
+          "observed_seconds": 1.5649997500004247,
+          "case": "c07"
+        },
+        {
+          "file": "c07.go",
+          "line": 6,
+          "p": 0.63,
+          "text": "}",
+          "observed_seconds": 1.5650124170060735,
+          "case": "c07"
+        },
+        {
+          "file": "c08.go",
+          "line": 1,
+          "p": 0.1,
+          "text": "package main",
+          "observed_seconds": 1.5650267500022892,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5650393340038136,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 3,
+          "p": 0.85,
+          "text": "func rollback() error {",
+          "observed_seconds": 1.5650520000053803,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 4,
+          "p": 0.93,
+          "text": "    err := restoreSnapshot(backup)",
+          "observed_seconds": 1.5650665420107543,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 5,
+          "p": 0.94,
+          "text": "    _ = err",
+          "observed_seconds": 1.5650798749993555,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 6,
+          "p": 0.84,
+          "text": "    return nil",
+          "observed_seconds": 1.5650925840018317,
+          "case": "c08"
+        },
+        {
+          "file": "c08.go",
+          "line": 7,
+          "p": 0.74,
+          "text": "}",
+          "observed_seconds": 1.5651047920109704,
+          "case": "c08"
+        },
+        {
+          "file": "c09.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.5651220840081805,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5651343750068918,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 3,
+          "p": 0.04,
+          "text": "func update() error {",
+          "observed_seconds": 1.5651506670110393,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 4,
+          "p": 0.02,
+          "text": "    if err := SaveConfig(); err != nil {",
+          "observed_seconds": 1.5651667920028558,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 5,
+          "p": 0.02,
+          "text": "        return err",
+          "observed_seconds": 1.5651808750117198,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 6,
+          "p": 0.05,
+          "text": "    }",
+          "observed_seconds": 1.565194042006624,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 7,
+          "p": 0.34,
+          "text": "    return nil",
+          "observed_seconds": 1.5652055840037065,
+          "case": "c09"
+        },
+        {
+          "file": "c09.go",
+          "line": 8,
+          "p": 0.46,
+          "text": "}",
+          "observed_seconds": 1.565217459006817,
+          "case": "c09"
+        },
+        {
+          "file": "c10.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.5652302090020385,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5652412500057835,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 3,
+          "p": 0.09,
+          "text": "func update() error {",
+          "observed_seconds": 1.5652531250088941,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 4,
+          "p": 0.04,
+          "text": "    return SaveConfig()",
+          "observed_seconds": 1.5652657090104185,
+          "case": "c10"
+        },
+        {
+          "file": "c10.go",
+          "line": 5,
+          "p": 0.09,
+          "text": "}",
+          "observed_seconds": 1.5652789590094471,
+          "case": "c10"
+        },
+        {
+          "file": "c11.go",
+          "line": 1,
+          "p": 0.08,
+          "text": "package main",
+          "observed_seconds": 1.5652956670091953,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5653076670132577,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 3,
+          "p": 0.22,
+          "text": "func clean() {",
+          "observed_seconds": 1.5653204170084791,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 4,
+          "p": 0.11,
+          "text": "    delete(options, \"extra_body\")",
+          "observed_seconds": 1.5653337920084596,
+          "case": "c11"
+        },
+        {
+          "file": "c11.go",
+          "line": 5,
+          "p": 0.09,
+          "text": "}",
+          "observed_seconds": 1.565345625000191,
+          "case": "c11"
+        },
+        {
+          "file": "c12.go",
+          "line": 1,
+          "p": 0.05,
+          "text": "package main",
+          "observed_seconds": 1.5653580000071088,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5653698750102194,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 3,
+          "p": 0.85,
+          "text": "// Temporary scratch files are cleaned up best-effort.",
+          "observed_seconds": 1.5653833750111517,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 4,
+          "p": 0.86,
+          "text": "func finish() {",
+          "observed_seconds": 1.5653958340117242,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 5,
+          "p": 0.87,
+          "text": "    _ = os.Remove(tempFile)",
+          "observed_seconds": 1.5654087500006426,
+          "case": "c12"
+        },
+        {
+          "file": "c12.go",
+          "line": 6,
+          "p": 0.59,
+          "text": "}",
+          "observed_seconds": 1.5654205000028014,
+          "case": "c12"
+        },
+        {
+          "file": "c13.go",
+          "line": 1,
+          "p": 0.13,
+          "text": "package main",
+          "observed_seconds": 1.5654332500125747,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5654476250056177,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 3,
+          "p": 0.06,
+          "text": "func save() {",
+          "observed_seconds": 1.5654621249996126,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 4,
+          "p": 0.06,
+          "text": "    if err := SaveConfig(); err != nil {",
+          "observed_seconds": 1.5654774170106975,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 5,
+          "p": 0.05,
+          "text": "        log.Printf(\"saving failed: %v\", err)",
+          "observed_seconds": 1.5654910000012023,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 6,
+          "p": 0.08,
+          "text": "    }",
+          "observed_seconds": 1.5655072500085225,
+          "case": "c13"
+        },
+        {
+          "file": "c13.go",
+          "line": 7,
+          "p": 0.21,
+          "text": "}",
+          "observed_seconds": 1.5655197920132196,
+          "case": "c13"
+        },
+        {
+          "file": "c14.go",
+          "line": 1,
+          "p": 0.19,
+          "text": "package main",
+          "observed_seconds": 1.565533917004359,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5655479170090985,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 3,
+          "p": 0.22,
+          "text": "// Previously this silently ignored config write failures.",
+          "observed_seconds": 1.5655602090118919,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 4,
+          "p": 0.08,
+          "text": "func save() error {",
+          "observed_seconds": 1.565571541999816,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 5,
+          "p": 0.06,
+          "text": "    return SaveConfig()",
+          "observed_seconds": 1.5655845840083202,
+          "case": "c14"
+        },
+        {
+          "file": "c14.go",
+          "line": 6,
+          "p": 0.07,
+          "text": "}",
+          "observed_seconds": 1.5655960840085754,
+          "case": "c14"
+        },
+        {
+          "file": "c15.go",
+          "line": 1,
+          "p": 0.05,
+          "text": "package main",
+          "observed_seconds": 1.5656105840025702,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5656234590132954,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 3,
+          "p": 0.86,
+          "text": "// Save the current configuration.",
+          "observed_seconds": 1.5656362090085167,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 4,
+          "p": 0.96,
+          "text": "func save() error {",
+          "observed_seconds": 1.5656473750132136,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 5,
+          "p": 0.95,
+          "text": "    _ = SaveConfig()",
+          "observed_seconds": 1.565659209009027,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 6,
+          "p": 0.75,
+          "text": "    return nil",
+          "observed_seconds": 1.5656734590011183,
+          "case": "c15"
+        },
+        {
+          "file": "c15.go",
+          "line": 7,
+          "p": 0.66,
+          "text": "}",
+          "observed_seconds": 1.5656870840030024,
+          "case": "c15"
+        },
+        {
+          "file": "c16.go",
+          "line": 1,
+          "p": 0.09,
+          "text": "package main",
+          "observed_seconds": 1.5657005420071073,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5657144590077223,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 3,
+          "p": 0.91,
+          "text": "func save() error {",
+          "observed_seconds": 1.5657274590048473,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 4,
+          "p": 0.96,
+          "text": "    _ = store.Put(newKey, value)",
+          "observed_seconds": 1.5657399170013377,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 5,
+          "p": 0.85,
+          "text": "    return nil",
+          "observed_seconds": 1.5657539170060772,
+          "case": "c16"
+        },
+        {
+          "file": "c16.go",
+          "line": 6,
+          "p": 0.82,
+          "text": "}",
+          "observed_seconds": 1.5657672500092303,
+          "case": "c16"
+        },
+        {
+          "file": "c17.go",
+          "line": 1,
+          "p": 0.03,
+          "text": "package main",
+          "observed_seconds": 1.5657806250092108,
+          "case": "c17"
+        },
+        {
+          "file": "c17.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5657932920003077,
+          "case": "c17"
+        },
+        {
+          "file": "c18.go",
+          "line": 1,
+          "p": 0.07,
+          "text": "package main",
+          "observed_seconds": 1.565807875012979,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.565819667011965,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 3,
+          "p": 0.11,
+          "text": "func create() error {",
+          "observed_seconds": 1.5658313750027446,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 4,
+          "p": 0.07,
+          "text": "    return SaveConfig()",
+          "observed_seconds": 1.5658422090054955,
+          "case": "c18"
+        },
+        {
+          "file": "c18.go",
+          "line": 5,
+          "p": 0.12,
+          "text": "}",
+          "observed_seconds": 1.565854375003255,
+          "case": "c18"
+        },
+        {
+          "file": "c19.go",
+          "line": 1,
+          "p": 0.04,
+          "text": "package main",
+          "observed_seconds": 1.5658662090136204,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5658766670094337,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 3,
+          "p": 0.38,
+          "text": "func render() string {",
+          "observed_seconds": 1.5658927920012502,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 4,
+          "p": 0.39,
+          "text": "    text, _ := Render(template)",
+          "observed_seconds": 1.5659050840040436,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 5,
+          "p": 0.39,
+          "text": "    return text",
+          "observed_seconds": 1.5659154590102844,
+          "case": "c19"
+        },
+        {
+          "file": "c19.go",
+          "line": 6,
+          "p": 0.21,
+          "text": "}",
+          "observed_seconds": 1.5659265420108568,
+          "case": "c19"
+        },
+        {
+          "file": "c20.go",
+          "line": 1,
+          "p": 0.09,
+          "text": "package main",
+          "observed_seconds": 1.5659384590107948,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 2,
+          "p": 0.0,
+          "text": "",
+          "observed_seconds": 1.5659494590072427,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 3,
+          "p": 0.05,
+          "text": "func save() error {",
+          "observed_seconds": 1.565962042004685,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 4,
+          "p": 0.04,
+          "text": "    err := SaveConfig()",
+          "observed_seconds": 1.565974292010651,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 5,
+          "p": 0.03,
+          "text": "    return err",
+          "observed_seconds": 1.5659862500033341,
+          "case": "c20"
+        },
+        {
+          "file": "c20.go",
+          "line": 6,
+          "p": 0.1,
+          "text": "}",
+          "observed_seconds": 1.5659977920004167,
+          "case": "c20"
+        }
+      ],
+      "diagnostics": ""
+    },
+    {
+      "mode": "functions",
+      "task": "a function that silently ignores a failure from a persistent state write or rollback operation instead of returning, logging, or otherwise handling the error",
+      "threshold": 0.5,
+      "seconds": 0.9663424589962233,
+      "first_useful_seconds": 0.2841056670004036,
+      "case_precision": 0.9090909090909091,
+      "case_recall": 1.0,
+      "true_positive_cases": [
+        "c01",
+        "c02",
+        "c03",
+        "c04",
+        "c05",
+        "c06",
+        "c07",
+        "c08",
+        "c15",
+        "c16"
+      ],
+      "false_positive_cases": [
+        "c12"
+      ],
+      "missed_positive_cases": [],
+      "records_to_review": 11,
+      "records_from_negative_cases": 1,
+      "median_call_seconds": 0.32689020899124444,
+      "meter": {
+        "calls": 19,
+        "cached": 0,
+        "retries": 0,
+        "input_tokens": 6098,
+        "cost": 0.00025611599999999997,
+        "model": "typesafe/jev-1.13-20260917"
+      },
+      "rows": [
+        {
+          "file": "c01.go",
+          "line": 3,
+          "p": 0.91,
+          "text": "func update() error {\n    SaveConfig()\n    return nil\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "update"
+          },
+          "end_line": 6,
+          "start": 14,
+          "end": 70,
+          "observed_seconds": 0.2841056670004036,
+          "case": "c01"
+        },
+        {
+          "file": "c02.go",
+          "line": 3,
+          "p": 0.98,
+          "text": "func save() error {\n    err := SaveConfig()\n    _ = err\n    return nil\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "save"
+          },
+          "end_line": 7,
+          "start": 14,
+          "end": 87,
+          "observed_seconds": 0.28414258400152903,
+          "case": "c02"
+        },
+        {
+          "file": "c03.go",
+          "line": 3,
+          "p": 0.97,
+          "text": "func rollback() error {\n    _ = os.Rename(backup, original)\n    return nil\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "rollback"
+          },
+          "end_line": 6,
+          "start": 14,
+          "end": 91,
+          "observed_seconds": 0.33353333399281837,
+          "case": "c03"
+        },
+        {
+          "file": "c04.go",
+          "line": 3,
+          "p": 0.95,
+          "text": "func remember() {\n    _ = history.AddMessage(message)\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "remember"
+          },
+          "end_line": 5,
+          "start": 14,
+          "end": 70,
+          "observed_seconds": 0.333556999990833,
+          "case": "c04"
+        },
+        {
+          "file": "c05.go",
+          "line": 3,
+          "p": 0.87,
+          "text": "func persist() {\n    defer tx.Commit()\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "persist"
+          },
+          "end_line": 5,
+          "start": 14,
+          "end": 55,
+          "observed_seconds": 0.7324014170008013,
+          "case": "c05"
+        },
+        {
+          "file": "c06.go",
+          "line": 3,
+          "p": 0.96,
+          "text": "func save() error {\n    if err := os.WriteFile(configPath, config, 0600); err != nil {\n        return nil\n    }\n    return nil\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "save"
+          },
+          "end_line": 8,
+          "start": 14,
+          "end": 143,
+          "observed_seconds": 0.7324364999949466,
+          "case": "c06"
+        },
+        {
+          "file": "c07.go",
+          "line": 3,
+          "p": 0.94,
+          "text": "func save() error {\n    store.Put(key, value)\n    return nil\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "save"
+          },
+          "end_line": 6,
+          "start": 14,
+          "end": 77,
+          "observed_seconds": 0.7324644589971285,
+          "case": "c07"
+        },
+        {
+          "file": "c08.go",
+          "line": 3,
+          "p": 0.95,
+          "text": "func rollback() error {\n    err := restoreSnapshot(backup)\n    _ = err\n    return nil\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "rollback"
+          },
+          "end_line": 7,
+          "start": 14,
+          "end": 102,
+          "observed_seconds": 0.7324878749932395,
+          "case": "c08"
+        },
+        {
+          "file": "c09.go",
+          "line": 3,
+          "p": 0.02,
+          "text": "func update() error {\n    if err := SaveConfig(); err != nil {\n        return err\n    }\n    return nil\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "update"
+          },
+          "end_line": 8,
+          "start": 14,
+          "end": 119,
+          "observed_seconds": 0.7325131249963306,
+          "case": "c09"
+        },
+        {
+          "file": "c10.go",
+          "line": 3,
+          "p": 0.06,
+          "text": "func update() error {\n    return SaveConfig()\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "update"
+          },
+          "end_line": 5,
+          "start": 14,
+          "end": 62,
+          "observed_seconds": 0.7325347500009229,
+          "case": "c10"
+        },
+        {
+          "file": "c11.go",
+          "line": 3,
+          "p": 0.16,
+          "text": "func clean() {\n    delete(options, \"extra_body\")\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "clean"
+          },
+          "end_line": 5,
+          "start": 14,
+          "end": 65,
+          "observed_seconds": 0.7325581670011161,
+          "case": "c11"
+        },
+        {
+          "file": "c12.go",
+          "line": 3,
+          "p": 0.9,
+          "text": "// Temporary scratch files are cleaned up best-effort.\nfunc finish() {\n    _ = os.Remove(tempFile)\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "finish"
+          },
+          "end_line": 6,
+          "start": 14,
+          "end": 115,
+          "observed_seconds": 0.7325781669933349,
+          "case": "c12"
+        },
+        {
+          "file": "c13.go",
+          "line": 3,
+          "p": 0.09,
+          "text": "func save() {\n    if err := SaveConfig(); err != nil {\n        log.Printf(\"saving failed: %v\", err)\n    }\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "save"
+          },
+          "end_line": 7,
+          "start": 14,
+          "end": 122,
+          "observed_seconds": 0.7325984170020092,
+          "case": "c13"
+        },
+        {
+          "file": "c14.go",
+          "line": 3,
+          "p": 0.28,
+          "text": "// Previously this silently ignored config write failures.\nfunc save() error {\n    return SaveConfig()\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "save"
+          },
+          "end_line": 6,
+          "start": 14,
+          "end": 119,
+          "observed_seconds": 0.7396585419919575,
+          "case": "c14"
+        },
+        {
+          "file": "c15.go",
+          "line": 3,
+          "p": 0.96,
+          "text": "// Save the current configuration.\nfunc save() error {\n    _ = SaveConfig()\n    return nil\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "save"
+          },
+          "end_line": 7,
+          "start": 14,
+          "end": 107,
+          "observed_seconds": 0.739690292000887,
+          "case": "c15"
+        },
+        {
+          "file": "c16.go",
+          "line": 3,
+          "p": 0.97,
+          "text": "func save() error {\n    _ = store.Put(newKey, value)\n    return nil\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "save"
+          },
+          "end_line": 6,
+          "start": 14,
+          "end": 84,
+          "observed_seconds": 0.7397169169998961,
+          "case": "c16"
+        },
+        {
+          "file": "c18.go",
+          "line": 3,
+          "p": 0.06,
+          "text": "func create() error {\n    return SaveConfig()\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "create"
+          },
+          "end_line": 5,
+          "start": 14,
+          "end": 62,
+          "observed_seconds": 0.7397407090029446,
+          "case": "c18"
+        },
+        {
+          "file": "c19.go",
+          "line": 3,
+          "p": 0.44,
+          "text": "func render() string {\n    text, _ := Render(template)\n    return text\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "render"
+          },
+          "end_line": 6,
+          "start": 14,
+          "end": 87,
+          "observed_seconds": 0.7397676669934299,
+          "case": "c19"
+        },
+        {
+          "file": "c20.go",
+          "line": 3,
+          "p": 0.03,
+          "text": "func save() error {\n    err := SaveConfig()\n    return err\n}\n",
+          "unit": {
+            "kind": "function",
+            "language": "go",
+            "symbol": "save"
+          },
+          "end_line": 6,
+          "start": 14,
+          "end": 75,
+          "observed_seconds": 0.9618493339949055,
+          "case": "c20"
+        }
+      ],
+      "diagnostics": ""
+    }
+  ],
+  "recorded_at": "2026-09-19T20:04:12.361567+00:00",
+  "python": "3.12.14",
+  "platform": "macOS-27.2-arm64-arm-64bit",
+  "source_hashes": {
+    "src/jgrep/code_inputs.py": "68597e247588d7e6588ec941965d42d9330b5fba919ceea309aaec90d277ec9f",
+    "src/jgrep/cli.py": "adb77c393df763c4832b74c7de1be771bd9624b8e32e1e64ded5c4f4259c69ca"
+  },
+  "total_reported_cost_usd": 0.004866498
+}

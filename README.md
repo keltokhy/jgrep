@@ -29,6 +29,9 @@ uv tool install jev-grep        # the command it installs is jgrep
 uv tool upgrade jev-grep        # upgrade an existing installation
 ```
 
+For Go function parsing, install the optional syntax parser: `uv tool install 'jev-grep[code]'`.
+Python function parsing and unified diffs work with the base package.
+
 jgrep needs a key for one of two APIs, or for a gateway of your own (below). With keys for
 several, it uses TypeSafe's.
 
@@ -88,6 +91,10 @@ jgrep --chunks 8000 --json "describes an identification strategy" paper.txt
 | `--json` | One JSON object per match, with the probability. |
 | `--jsonl --field NAME`, `--csv --field NAME` | Judge one field and return the complete original record. |
 | `--chunks N`, `--overlap N` | Search full text files in overlapping passages, with source locations. |
+| `--diff` | Judge each complete unified diff hunk, including removed lines and unchanged context. |
+| `--functions`, `--lang python\|go` | Judge complete functions/methods with adjacent comments; infer language from the extension, or specify it for stdin. |
+| `--estimate` | Read to EOF and preview calls and approximate cost without authentication or API calls. Add `--json` for a single report. |
+| `--emit-records` | Export source-linked JSONL without judging; omit DESCRIPTION. Useful for inspection and other tools. |
 | `--max-chars N` | Maximum characters judged per ordinary record; default 8000. Truncation produces a warning. |
 | `--unordered` | Print matches as answers arrive. |
 | `-j N` | Calls in flight. Default 32. |
@@ -96,6 +103,82 @@ jgrep --chunks 8000 --json "describes an identification strategy" paper.txt
 | `--no-cache`, `--api`, `--model`, `--stats` | See `jgrep --help`. |
 
 Exit status follows grep: 0 if anything matched, 1 if nothing did, 2 on error.
+Offline estimation and record export exit 0 on success, including empty input, and 2 on errors.
+
+## Changes and complete functions
+
+```bash
+# Review both sides of each change, including deletion-only hunks
+git diff --no-color | jgrep --diff "removes error handling for a persistent write"
+jgrep --diff "weakens cancellation handling" review.patch --json
+
+# Read the entire function; comments and decorators stay attached
+jgrep --functions "ignores a failed rollback" plugin/installer.go --json
+jgrep --functions "releases connections on every exit path" src/ -r --glob '*.py'
+
+# Preview exactly the units the filter would judge; no key or paid call needed
+git diff --no-color | jgrep --diff --estimate "removes error handling" --json
+
+# Export functions for jselect without making any jgrep model calls
+jgrep --functions --emit-records src/ -r > functions.jsonl
+jselect "How does cancellation work?" functions.jsonl --tokens 2000
+```
+
+`--diff` accepts ordinary unified patches, including Git diffs, from files or stdin. One decision
+covers a complete hunk: both removed and added lines, plus the context supplied in the patch.
+Use `git diff -U10` when you need more surrounding lines. Each emitted hunk repeats its file headers.
+It does not read the working tree or retrieve omitted context. Binary changes, metadata-only changes
+(such as mode-only edits), combined merge diffs, and malformed hunks produce errors rather than
+silently reporting no match. An empty diff contains no records.
+
+For diff JSON, `file`, `line`, and `end_line` locate the hunk in the **input patch**, while `unit`
+contains `old_file`, `new_file`, `old_start`, `old_count`, `new_start`, and `new_count`. Missing
+file sides are null; zero-length ranges retain the unified diff's insertion/deletion anchor.
+`-c` counts matching hunks per input patch and `-l` names matching input patches.
+
+`--functions` supports Python through the standard-library AST and Go through the optional
+Tree-sitter parser. It extracts named functions and methods, retaining decorators, docstrings,
+adjacent comments, and nested function bodies. Nested functions are not emitted again separately.
+Imports, class-level state and callers are not automatically attached. Recursive discovery skips
+other extensions unless `--lang` is explicit. Syntax errors are reported rather than guessed around.
+Function JSON includes `unit.language`, `unit.symbol`, and exact decoded-character `start`/`end`
+offsets with one-based source lines. The Python API exposes the same deterministic readers in
+`jgrep.code_inputs.function_records` and `diff_records`.
+
+Diffs and functions **never truncate**: units over `--max-chars` fail with their size and location.
+Raise that limit deliberately if needed. These modes cannot combine with `-C`, `--para`, `--whole`,
+`--chunks`, or structured input. They read each input file into memory; keep live streams in line mode.
+
+`--emit-records` writes one object containing `schema_version`, `id`, `text`, `source`, line/span
+locations and `unit`. IDs include the source location and a text hash, so tools that select only
+`text` and `id`, including jselect, retain a traceable reference. It exports full parsed records,
+without ordinary line-mode truncation or a relevance judgment. Do not supply a description or match
+filters. Errors are JSONL objects with an `error.message` and cause exit 2; a pipeline must check
+the producer's exit status before treating its export as complete.
+
+These modes retrieve evidence for review. Model scores do not prove a bug or certify that a change
+is safe. Results and observed failures on 20 handwritten examples are in the
+[code-review experiment](https://github.com/keltokhy/jgrep/blob/main/docs/CODE_REVIEW.md).
+
+## Cost preview
+
+`--estimate` uses the same input mode, selected field, context window, descriptions and model as
+the filter. It reads existing cached answers in read-only mode and estimates reuse of exact repeated
+requests. It does not normalize whitespace or identifiers, create a cache, or contact the provider.
+Without a configured provider it uses TypeSafe's default model; use `--api` and `--model` to preview
+a specific setup. No API key is required.
+
+The JSON report includes record/cache/duplicate counts, `estimated_calls`, `call_upper_bound` before
+new duplicate reuse, `estimated_input_tokens`, `estimated_cost_usd`, `byte_estimate_cost_usd`, errors
+and assumptions. Costs use `JEV_PRICE_PER_MTOK` (default $0.042 per million input tokens). The nominal
+estimate is UTF-8 request bytes divided by four plus 270 overhead tokens per request; the broader
+byte estimate uses those bytes plus 1,024 overhead. Neither is a provider quote or guaranteed cap.
+Retries, gateway pricing and concurrent cache misses can change actual cost.
+
+Preview reads to EOF and ignores matching stop conditions (`-q`, `-l`, `-m`, threshold and budget),
+because their effects depend on model answers. It reports ordinary-record truncation and oversized
+code-unit errors. Use finite input, not an endless `tail -f` stream. With `--json`, the preview is one
+object; `errors` makes a partially readable collection explicit and the exit status is 2.
 
 ## Structured records
 

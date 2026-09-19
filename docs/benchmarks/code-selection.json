@@ -1,0 +1,81 @@
+{
+  "model_calls": 0,
+  "encoding": "o200k_base",
+  "runs": [
+    {
+      "token_budget": 250,
+      "diversity": 0,
+      "selected_cases": [
+        "c04",
+        "c02",
+        "c16",
+        "c03",
+        "c07"
+      ],
+      "negative_cases_selected": [],
+      "tokens": 217,
+      "context": "[1] {\"source\":\"c04.go\",\"line\":3,\"id\":\"c04\",\"chars\":[0,56]}\nfunc remember() {\n    _ = history.AddMessage(message)\n}\n\n\n[2] {\"source\":\"c02.go\",\"line\":3,\"id\":\"c02\",\"chars\":[0,73]}\nfunc save() error {\n    err := SaveConfig()\n    _ = err\n    return nil\n}\n\n\n[3] {\"source\":\"c16.go\",\"line\":3,\"id\":\"c16\",\"chars\":[0,70]}\nfunc save() error {\n    _ = store.Put(newKey, value)\n    return nil\n}\n\n\n[4] {\"source\":\"c03.go\",\"line\":3,\"id\":\"c03\",\"chars\":[0,77]}\nfunc rollback() error {\n    _ = os.Rename(backup, original)\n    return nil\n}\n\n\n[5] {\"source\":\"c07.go\",\"line\":3,\"id\":\"c07\",\"chars\":[0,63]}\nfunc save() error {\n    store.Put(key, value)\n    return nil\n}\n"
+    },
+    {
+      "token_budget": 250,
+      "diversity": 0.7,
+      "selected_cases": [
+        "c04",
+        "c02",
+        "c05",
+        "c03",
+        "c12"
+      ],
+      "negative_cases_selected": [
+        "c12"
+      ],
+      "tokens": 214,
+      "context": "[1] {\"source\":\"c04.go\",\"line\":3,\"id\":\"c04\",\"chars\":[0,56]}\nfunc remember() {\n    _ = history.AddMessage(message)\n}\n\n\n[2] {\"source\":\"c02.go\",\"line\":3,\"id\":\"c02\",\"chars\":[0,73]}\nfunc save() error {\n    err := SaveConfig()\n    _ = err\n    return nil\n}\n\n\n[3] {\"source\":\"c05.go\",\"line\":3,\"id\":\"c05\",\"chars\":[0,41]}\nfunc persist() {\n    defer tx.Commit()\n}\n\n\n[4] {\"source\":\"c03.go\",\"line\":3,\"id\":\"c03\",\"chars\":[0,77]}\nfunc rollback() error {\n    _ = os.Rename(backup, original)\n    return nil\n}\n\n\n[5] {\"source\":\"c12.go\",\"line\":3,\"id\":\"c12\",\"chars\":[0,101]}\n// Temporary scratch files are cleaned up best-effort.\nfunc finish() {\n    _ = os.Remove(tempFile)\n}\n"
+    },
+    {
+      "token_budget": 500,
+      "diversity": 0,
+      "selected_cases": [
+        "c04",
+        "c02",
+        "c16",
+        "c03",
+        "c07",
+        "c15",
+        "c01",
+        "c08",
+        "c05",
+        "c06",
+        "c12"
+      ],
+      "negative_cases_selected": [
+        "c12"
+      ],
+      "tokens": 496,
+      "context": "[1] {\"source\":\"c04.go\",\"line\":3,\"id\":\"c04\",\"chars\":[0,56]}\nfunc remember() {\n    _ = history.AddMessage(message)\n}\n\n\n[2] {\"source\":\"c02.go\",\"line\":3,\"id\":\"c02\",\"chars\":[0,73]}\nfunc save() error {\n    err := SaveConfig()\n    _ = err\n    return nil\n}\n\n\n[3] {\"source\":\"c16.go\",\"line\":3,\"id\":\"c16\",\"chars\":[0,70]}\nfunc save() error {\n    _ = store.Put(newKey, value)\n    return nil\n}\n\n\n[4] {\"source\":\"c03.go\",\"line\":3,\"id\":\"c03\",\"chars\":[0,77]}\nfunc rollback() error {\n    _ = os.Rename(backup, original)\n    return nil\n}\n\n\n[5] {\"source\":\"c07.go\",\"line\":3,\"id\":\"c07\",\"chars\":[0,63]}\nfunc save() error {\n    store.Put(key, value)\n    return nil\n}\n\n\n[6] {\"source\":\"c15.go\",\"line\":3,\"id\":\"c15\",\"chars\":[0,93]}\n// Save the current configuration.\nfunc save() error {\n    _ = SaveConfig()\n    return nil\n}\n\n\n[7] {\"source\":\"c01.go\",\"line\":3,\"id\":\"c01\",\"chars\":[0,56]}\nfunc update() error {\n    SaveConfig()\n    return nil\n}\n\n\n[8] {\"source\":\"c08.go\",\"line\":3,\"id\":\"c08\",\"chars\":[0,88]}\nfunc rollback() error {\n    err := restoreSnapshot(backup)\n    _ = err\n    return nil\n}\n\n\n[9] {\"source\":\"c05.go\",\"line\":3,\"id\":\"c05\",\"chars\":[0,41]}\nfunc persist() {\n    defer tx.Commit()\n}\n\n\n[10] {\"source\":\"c06.go\",\"line\":3,\"id\":\"c06\",\"chars\":[0,129]}\nfunc save() error {\n    if err := os.WriteFile(configPath, config, 0600); err != nil {\n        return nil\n    }\n    return nil\n}\n\n\n[11] {\"source\":\"c12.go\",\"line\":3,\"id\":\"c12\",\"chars\":[0,101]}\n// Temporary scratch files are cleaned up best-effort.\nfunc finish() {\n    _ = os.Remove(tempFile)\n}\n"
+    },
+    {
+      "token_budget": 500,
+      "diversity": 0.7,
+      "selected_cases": [
+        "c04",
+        "c02",
+        "c05",
+        "c03",
+        "c12",
+        "c16",
+        "c06",
+        "c01",
+        "c08",
+        "c15",
+        "c07"
+      ],
+      "negative_cases_selected": [
+        "c12"
+      ],
+      "tokens": 496,
+      "context": "[1] {\"source\":\"c04.go\",\"line\":3,\"id\":\"c04\",\"chars\":[0,56]}\nfunc remember() {\n    _ = history.AddMessage(message)\n}\n\n\n[2] {\"source\":\"c02.go\",\"line\":3,\"id\":\"c02\",\"chars\":[0,73]}\nfunc save() error {\n    err := SaveConfig()\n    _ = err\n    return nil\n}\n\n\n[3] {\"source\":\"c05.go\",\"line\":3,\"id\":\"c05\",\"chars\":[0,41]}\nfunc persist() {\n    defer tx.Commit()\n}\n\n\n[4] {\"source\":\"c03.go\",\"line\":3,\"id\":\"c03\",\"chars\":[0,77]}\nfunc rollback() error {\n    _ = os.Rename(backup, original)\n    return nil\n}\n\n\n[5] {\"source\":\"c12.go\",\"line\":3,\"id\":\"c12\",\"chars\":[0,101]}\n// Temporary scratch files are cleaned up best-effort.\nfunc finish() {\n    _ = os.Remove(tempFile)\n}\n\n\n[6] {\"source\":\"c16.go\",\"line\":3,\"id\":\"c16\",\"chars\":[0,70]}\nfunc save() error {\n    _ = store.Put(newKey, value)\n    return nil\n}\n\n\n[7] {\"source\":\"c06.go\",\"line\":3,\"id\":\"c06\",\"chars\":[0,129]}\nfunc save() error {\n    if err := os.WriteFile(configPath, config, 0600); err != nil {\n        return nil\n    }\n    return nil\n}\n\n\n[8] {\"source\":\"c01.go\",\"line\":3,\"id\":\"c01\",\"chars\":[0,56]}\nfunc update() error {\n    SaveConfig()\n    return nil\n}\n\n\n[9] {\"source\":\"c08.go\",\"line\":3,\"id\":\"c08\",\"chars\":[0,88]}\nfunc rollback() error {\n    err := restoreSnapshot(backup)\n    _ = err\n    return nil\n}\n\n\n[10] {\"source\":\"c15.go\",\"line\":3,\"id\":\"c15\",\"chars\":[0,93]}\n// Save the current configuration.\nfunc save() error {\n    _ = SaveConfig()\n    return nil\n}\n\n\n[11] {\"source\":\"c07.go\",\"line\":3,\"id\":\"c07\",\"chars\":[0,63]}\nfunc save() error {\n    store.Put(key, value)\n    return nil\n}\n"
+    }
+  ],
+  "limitations": "Same small synthetic corpus and frozen scores; no human usefulness labels or production validation."
+}
