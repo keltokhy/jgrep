@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "tests": 159,
+  "fresh_wheel_install": true,
+  "outside_checkout": true,
+  "python_base_without_go_extra": true,
+  "missing_extra_actionable": true,
+  "go_extra_install": true,
+  "stdin_functions_export": true,
+  "jselect_record_id_preserved": true,
+  "jselect_tokens": 61,
+  "offline_estimate_without_auth": true,
+  "malformed_diff_exit_2": true,
+  "live_diff_match_probability": 0.97,
+  "wheel_sha256": "564211ead46b40199bf8893aa771e2a9f83eb81c14aa237b25fcef75b09f7f6e"
+}

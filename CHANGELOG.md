@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- Add `--diff` for complete unified hunks, including deletions and unchanged context, with both
+  source ranges and patch locations. Reject malformed, binary, combined, and metadata-only diffs.
+- Add `--functions` for Python functions/methods and optional Tree-sitter Go support via `[code]`.
+  Preserve comments, decorators, exact source spans and nested bodies. Never truncate code units.
+- Add offline `--estimate` with read-only cache inspection, approximate costs, and explicit assumptions.
+- Add offline `--emit-records` JSONL for composition with jselect and other record consumers.
+- Include source/provenance tests and a frozen 20-case synthetic benchmark with negative results.
+
 ## 0.1.1
 
 - Include the gateway backend for System One-compatible endpoints, with separate URL and key settings.

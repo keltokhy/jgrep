@@ -1,6 +1,6 @@
 [project]
 name = "jev-grep"
-version = "0.1.1"
+version = "0.2.0"
 description = "grep by meaning: filter lines with a plain-English description, judged by TypeSafe's Jev model"
 readme = "README.md"
 license = "MIT"
@@ -9,6 +9,7 @@ requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.27",
     "pathspec>=0.12",
+    "unidiff>=0.7.5,<0.8",
 ]
 keywords = ["grep", "cli", "semantic search", "jev", "typesafe", "openrouter"]
 classifiers = [
@@ -23,6 +24,12 @@ Repository = "https://github.com/keltokhy/jgrep"
 
 [project.scripts]
 jgrep = "jgrep.cli:cli"
+
+[project.optional-dependencies]
+code = [
+    "tree-sitter>=0.25,<0.26",
+    "tree-sitter-go>=0.25,<0.26",
+]
 
 [dependency-groups]
 dev = ["pytest>=8"]

@@ -16,7 +16,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - name: The tag must match the version in pyproject.toml
         run: test "v$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)" = "$GITHUB_REF_NAME"
-      - run: uv sync
+      - run: uv sync --locked --extra code
       - run: uv run pytest -q
       - run: uv build
       - run: uv publish
