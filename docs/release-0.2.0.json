@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "published_to_pypi": true,
+  "release_commit": "3a2d9357c5f1122f85757c9b816d3c35399dcbf2",
+  "publish_run": "https://github.com/keltokhy/jgrep/actions/runs/35466565313",
+  "python_matrix_run": "https://github.com/keltokhy/jgrep/actions/runs/35466565331",
+  "fresh_index_install": true,
+  "go_optional_extra": true,
+  "installed_cli_outside_checkout": true,
+  "artifacts_match_local_build": true,
+  "artifacts": [
+    {
+      "filename": "jev_grep-0.2.0-py3-none-any.whl",
+      "sha256": "564211ead46b40199bf8893aa771e2a9f83eb81c14aa237b25fcef75b09f7f6e"
+    },
+    {
+      "filename": "jev_grep-0.2.0.tar.gz",
+      "sha256": "29136aa3b481f0a060e5bd27b486406f6701055c38bc1c9a717c52c386bbb030"
+    }
+  ]
+}
