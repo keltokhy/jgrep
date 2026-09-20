@@ -89,7 +89,7 @@ def _python_spans(text: str):
     def visit(node, scope=""):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             first = min([node.lineno, *[d.lineno for d in node.decorator_list]])
-            yield first, node.end_lineno, scope + node.name
+            yield first, node.end_lineno, scope + node.name, 0, None
             return  # nested functions remain in their enclosing function's record
         if isinstance(node, ast.ClassDef):
             scope += node.name + "."
@@ -117,28 +117,38 @@ def _go_spans(text: str):
         receiver = node.child_by_field_name("receiver")
         if receiver:
             symbol = encoded[receiver.start_byte:receiver.end_byte].decode("utf-8") + "." + symbol
-        start = node.start_point.row + 1
+        start = node.start_point
         previous = node.prev_named_sibling
-        while previous and previous.type == "comment" and previous.end_point.row + 2 == start:
-            start = previous.start_point.row + 1
+        while (previous and previous.type == "comment" and previous.end_point.row + 1 == start.row
+               and not encoded[previous.start_byte - previous.start_point.column:previous.start_byte].strip()):
+            start = previous.start_point
             previous = previous.prev_named_sibling
-        yield start, node.end_point.row + 1, symbol
+        yield start.row + 1, node.end_point.row + 1, symbol, start.column, node.end_point.column
 
 
 def function_records(text: str, label: str, language: str | None = None):
     language = language or {".py": "python", ".go": "go"}.get(Path(label).suffix)
     if language not in {"python", "go"}:
         raise ValueError("--functions supports .py and .go; use --lang python|go for stdin")
-    lines = text.splitlines(keepends=True)
+    # Python recognizes CR, CRLF and LF; Tree-sitter Go counts LF only. Neither
+    # treats form feeds or Unicode separators inside source text as new lines.
+    lines = list(io.StringIO(text, newline="" if language == "python" else "\n"))
     offsets = [0]
     for line in lines:
         offsets.append(offsets[-1] + len(line))
     spans = _python_spans(text) if language == "python" else _go_spans(text)
-    for first, last, symbol in spans:
+    for first, last, symbol, first_col, last_col in spans:
         if language == "python":
             while first > 1 and lines[first - 2].lstrip().startswith("#"):
                 first -= 1
-        start, end = offsets[first - 1], offsets[last]
+        # Parser columns count UTF-8 bytes; exported offsets count characters.
+        prefix = lines[first - 1].encode("utf-8")[:first_col].decode("utf-8")
+        start = offsets[first - 1] + (len(prefix) if prefix.strip() else 0)
+        end = offsets[last]
+        if last_col is not None:
+            body = lines[last - 1].encode("utf-8")[:last_col].decode("utf-8")
+            if lines[last - 1][len(body):].strip():
+                end = offsets[last - 1] + len(body)
         yield Record(0, label, first, text[start:end], start=start, end=end, end_line=last,
                      unit={"kind": "function", "language": language, "symbol": symbol})
 

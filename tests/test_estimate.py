@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from jgrep import cli
 from jgrep.core import Cache, cache_path
 from test_cli import env, jgrep, write
@@ -68,3 +70,19 @@ def test_missing_input_is_json_error_and_empty_selection_is_success(tmp_path):
     assert code == 2 and json.loads(out)["errors"]
     code, out, _, _ = jgrep(["alpha", str(tmp_path), "-r", "--glob", "*.absent", "--estimate", "--json"])
     assert code == 0 and json.loads(out)["records"] == 0
+
+
+@pytest.mark.parametrize("url_variable", ["JEV_GATEWAY_URL", "JEV_URL"])
+def test_estimate_and_filter_share_endpoint_scoped_cache(monkeypatch, tmp_path, url_variable):
+    monkeypatch.setenv("JEV_GATEWAY_API_KEY", "test-key")
+    monkeypatch.setenv(url_variable, "https://first.invalid")
+    path = write(tmp_path, "data.txt", "alpha\n")
+    command = ["alpha", path, "--api", "gateway"]
+    assert len(jgrep(command)[3].bodies) == 1
+    warm = json.loads(jgrep([*command, "--estimate", "--json"])[1])
+    assert warm["cached_records"] == 1 and warm["estimated_calls"] == 0
+
+    monkeypatch.setenv(url_variable, "https://second.invalid")
+    cold = json.loads(jgrep([*command, "--estimate", "--json"])[1])
+    assert cold["cached_records"] == 0 and cold["estimated_calls"] == 1
+    assert len(jgrep(command)[3].bodies) == 1
