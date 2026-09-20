@@ -1,6 +1,7 @@
 """Response validation and deadline regressions; only a local HTTP server is used."""
 
 import asyncio
+import hashlib
 import json
 
 import httpx
@@ -92,6 +93,37 @@ def test_invalid_answers_are_not_partially_cached(tmp_path, answers):
             assert cache.db.execute("SELECT COUNT(*) FROM answers").fetchone()[0] == 0
         finally:
             await jev.close()
+            cache.db.close()
+
+    asyncio.run(exercise())
+
+
+def test_cache_separates_endpoints_and_providers_but_reuses_same_origin(tmp_path):
+    async def exercise():
+        cache = Cache(tmp_path / "answers.sqlite")
+        calls = []
+        questions = {"d0": {"type": "noul", "instructions": "alpha"}}
+        # Old entries have no trustworthy provider/endpoint identity and must be ignored.
+        legacy = json.dumps(["same-model", "text", questions["d0"]], sort_keys=True, ensure_ascii=False)
+        cache.put(hashlib.sha256(legacy.encode()).hexdigest(), {"noul": 0.8})
+        origins = [("gateway", "https://first.invalid", 0.9),
+                   ("gateway", "https://second.invalid", 0.1),
+                   ("other", "https://second.invalid", 0.2),
+                   ("gateway", "https://first.invalid", 0.9)]
+        try:
+            for api, url, expected in origins:
+                def respond(request):
+                    calls.append(str(request.url))
+                    return httpx.Response(200, json={"answers": {"d0": {"noul": expected}}})
+
+                jev = Jev("test-key", Backend(api, url, "same-model", "UNUSED"), cache=cache,
+                          transport=httpx.MockTransport(respond))
+                try:
+                    assert (await jev.ask("text", questions))["d0"]["noul"] == expected
+                finally:
+                    await jev.close()
+            assert len(calls) == 3
+        finally:
             cache.db.close()
 
     asyncio.run(exercise())

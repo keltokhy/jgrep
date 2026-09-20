@@ -105,6 +105,10 @@ jgrep --chunks 8000 --json "describes an identification strategy" paper.txt
 Exit status follows grep: 0 if anything matched, 1 if nothing did, 2 on error.
 Offline estimation and record export exit 0 on success, including empty input, and 2 on errors.
 
+With ordered output, `-j N` bounds the total of active requests and completed results waiting
+for earlier records. A slow first record therefore cannot let the rest of the input run ahead.
+`--unordered` releases each slot as soon as its result arrives.
+
 ## Changes and complete functions
 
 ```bash
@@ -234,7 +238,9 @@ read text, not PDF or Word formats.
 A call bills roughly 270 tokens of fixed overhead plus the line and the description, so a
 typical line costs about 300 tokens, or $0.0000126 at $0.042 per million. A million lines is
 about $13. Blank lines, repeated lines and anything answered before are free: answers are
-cached in `~/.cache/jev/answers.sqlite`, keyed on the exact model, line and description.
+cached in `~/.cache/jev/answers.sqlite`, keyed on the provider, endpoint, exact model, judged text
+and description. Changing gateways cannot reuse another endpoint's answers. Older cache entries
+without provider/endpoint identity are not reused, so the first rerun may make fresh calls.
 Extra `-e` descriptions add about 27 tokens each and no time. `-C N` sends 2N+1 lines in
 place of one, so `-C 2` costs roughly three times as much per line once the fixed overhead is
 counted.

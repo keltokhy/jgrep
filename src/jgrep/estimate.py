@@ -23,6 +23,7 @@ def preview_backend(args):
 
 def estimate(stream, args, questions, make_state):
     backend, model = preview_backend(args)
+    url = backend.endpoint()
     if not math.isfinite(PRICE_PER_MTOK) or PRICE_PER_MTOK < 0:
         raise ValueError("JEV_PRICE_PER_MTOK must be finite and nonnegative")
     path = cache_path()
@@ -57,7 +58,7 @@ def estimate(stream, args, questions, make_state):
             missing = {}
             fresh = {}
             for qid, q in questions.items():
-                key = Cache.key(model, state, q)
+                key = Cache.key(model, state, q, api=backend.name, url=url)
                 row = cache.execute("SELECT answer FROM answers WHERE key=?", (key,)).fetchone() if cache else None
                 if row:
                     try:
