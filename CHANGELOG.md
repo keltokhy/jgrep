@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1
 
 - Scope answer caches and offline estimates to the provider and endpoint as well as model and input.
   Existing entries without that identity are not reused.
