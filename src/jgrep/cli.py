@@ -224,6 +224,7 @@ async def scan(args, descriptions: list[str], files: list[str], jev: Jev, out, e
     loop = asyncio.get_running_loop()
     questions = {f"d{i}": question(d, bool(args.context), args.diff) for i, d in enumerate(descriptions)}
     queue: asyncio.Queue = asyncio.Queue(maxsize=args.concurrency)
+    # A slot covers both an active request and its result waiting for ordered output.
     sem = asyncio.Semaphore(args.concurrency)
     stop, halt = threading.Event(), asyncio.Event()
     finished: dict[int, tuple] = {}
@@ -294,11 +295,13 @@ async def scan(args, descriptions: list[str], files: list[str], jev: Jev, out, e
 
     def deliver(rec: Record, result: tuple) -> None:
         if args.unordered:
+            sem.release()
             return None if halt.is_set() else emit(rec, *result)
         finished[rec.seq] = (rec, *result)
         while s["next"] in finished and not halt.is_set():
             emit(*finished.pop(s["next"]))
             s["next"] += 1
+            sem.release()
 
     async def judge(rec: Record) -> None:
         try:
@@ -319,8 +322,6 @@ async def scan(args, descriptions: list[str], files: list[str], jev: Jev, out, e
             # Every record needs a result so one client/cache failure cannot leave
             # a permanent gap in ordered output or masquerade as "no matches".
             result = (None, None, f"{type(e).__name__}: {e}")
-        finally:
-            sem.release()
         deliver(rec, result)
         if args.budget and jev.meter.cost >= args.budget and not s["over_budget"]:
             s["over_budget"] = True
@@ -346,8 +347,11 @@ async def scan(args, descriptions: list[str], files: list[str], jev: Jev, out, e
         if isinstance(item, str):
             complain(item)
             continue
-        await sem.acquire()
+        slot = asyncio.ensure_future(sem.acquire())
+        await asyncio.wait({slot, halted}, return_when=asyncio.FIRST_COMPLETED)
         if halt.is_set():
+            slot.cancel()
+            await asyncio.gather(slot, return_exceptions=True)
             break
         task = asyncio.create_task(judge(item))
         tasks.add(task)

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Scope answer caches and offline estimates to the provider and endpoint as well as model and input.
+  Existing entries without that identity are not reused.
+- Bound ordered work by `-j`, including completed results waiting behind a slow record, while
+  allowing fatal errors and budget limits to stop promptly.
+- Preserve complete Python functions containing Unicode separators or form feeds, and separate
+  Go functions that share a line using parser columns and exact character offsets.
+
 ## 0.2.0
 
 - Add `--diff` for complete unified hunks, including deletions and unchanged context, with both
