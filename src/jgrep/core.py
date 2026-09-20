@@ -2,7 +2,7 @@
 
 Jev can be reached through TypeSafe's own API or through OpenRouter. Both take one state and any
 number of questions per call and return one typed answer per question. Answers are cached per
-(model, state, question), so packing questions into a call and rerunning a command are both cheap.
+(provider, endpoint, model, state, question), so packing questions and rerunning a command are cheap.
 
 The jlink repository uses the same client design.
 """
@@ -66,6 +66,9 @@ class Backend:
             return os.environ[self.url_env].strip()
         return self.url_file.read_text().strip() if self.url_file.exists() else None
 
+    def endpoint(self) -> str:
+        return os.environ.get("JEV_URL") or self.configured_url() or self.url
+
 
 # Order matters: with keys for several, the first one here is used.
 BACKENDS = {
@@ -107,7 +110,7 @@ def resolve_backend(name: str | None = None) -> tuple[Backend, str]:
 
 
 class Cache:
-    """Answers on disk, keyed on the exact model, state and question."""
+    """Answers on disk, scoped to the provider, endpoint, model, state and question."""
 
     def __init__(self, path: Path | None = None):
         path = path or cache_path()
@@ -120,8 +123,8 @@ class Cache:
                         "(key TEXT PRIMARY KEY, answer TEXT NOT NULL, at REAL NOT NULL) WITHOUT ROWID")
 
     @staticmethod
-    def key(model: str, state, question: dict) -> str:
-        blob = json.dumps([model, state, question], sort_keys=True, ensure_ascii=False)
+    def key(model: str, state, question: dict, *, api: str, url: str) -> str:
+        blob = json.dumps([api, url, model, state, question], sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(blob.encode()).hexdigest()
 
     def get(self, key: str) -> dict | None:
@@ -158,7 +161,7 @@ class Jev:
                  transport=None):
         self.backend = BACKENDS[backend] if isinstance(backend, str) else backend
         self.model = model or os.environ.get("JEV_MODEL") or self.backend.model
-        self.url = os.environ.get("JEV_URL") or self.backend.configured_url() or self.backend.url
+        self.url = self.backend.endpoint()
         self.timeout, self.attempts, self.cache = timeout, attempts, cache
         self.meter = Meter()
         self._flights: dict[str, asyncio.Task] = {}
@@ -173,7 +176,8 @@ class Jev:
 
     async def ask(self, state, questions: dict[str, dict]) -> dict[str, dict]:
         """Answer every question about one state. Only questions missing from the cache are sent."""
-        keys = {qid: Cache.key(self.model, state, q) for qid, q in questions.items()}
+        keys = {qid: Cache.key(self.model, state, q, api=self.backend.name, url=self.url)
+                for qid, q in questions.items()}
         answers = {}
         if self.cache:
             for qid, k in keys.items():
@@ -250,7 +254,7 @@ class Jev:
             if qid not in answers:
                 raise JevError(f"no answer returned for question {qid!r}")
             _validate_answer(qid, q, answers[qid])
-            k = Cache.key(self.model, state, q)
+            k = Cache.key(self.model, state, q, api=self.backend.name, url=self.url)
             out[k] = answers[qid]
         # Validate the entire response before storing any part of it.
         if self.cache:

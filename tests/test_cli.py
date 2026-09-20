@@ -11,7 +11,7 @@ import pytest
 
 from jgrep.cli import main
 from jgrep import cli as cli_module
-from jgrep.core import Cache, Jev
+from jgrep.core import BACKENDS, Cache, Jev
 
 WORDS = ["alpha", "beta", "gamma"]
 
@@ -70,6 +70,63 @@ def test_prints_matching_lines_in_input_order(tmp_path):
     code, out, _, _ = jgrep(["alpha", f, "-j", "16"], jitter=0.02)
     assert code == 0
     assert out.splitlines() == [l for l in lines if "alpha" in l]
+
+
+@pytest.mark.parametrize("flags,first_status", [([], 200), (["-m", "1"], 200), ([], 400)])
+def test_slow_first_record_bounds_ordered_work(tmp_path, flags, first_status):
+    calls, ahead = [], []
+    second_started = asyncio.Event()
+
+    async def handler(request):
+        text = json.loads(request.content)["state"]
+        calls.append(text)
+        if text == "row 0":
+            await asyncio.wait_for(second_started.wait(), 1)
+            # Let later requests finish while the first still occupies its slot.
+            await asyncio.sleep(0.05)
+            ahead.append(len(calls))
+            if first_status != 200:
+                return httpx.Response(first_status, json={"error": "bad first record"})
+        else:
+            second_started.set()
+        return httpx.Response(200, json={"answers": {"d0": {"noul": 0.9}}})
+
+    lines = [f"row {i}" for i in range(200)]
+    path = write(tmp_path, "data.txt", "\n".join(lines) + "\n")
+    code, out, _, _ = jgrep(["matches", path, "-j", "2", "--no-cache", "--budget", "0", *flags],
+                           fake=handler)
+    assert ahead == [2]
+    assert code == (0 if first_status == 200 else 2)
+    expected = lines[:1] if flags else lines if first_status == 200 else lines[1:]
+    assert out.splitlines() == expected
+    assert len(calls) == (2 if flags else len(lines))
+
+
+@pytest.mark.parametrize("failure", ["fatal", "budget"])
+def test_halt_interrupts_wait_for_ordered_output_slot(tmp_path, failure):
+    cancelled, calls = [], []
+
+    async def handler(request):
+        text = json.loads(request.content)["state"]
+        calls.append(text)
+        if text == "row 0":
+            try:
+                await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                cancelled.append(text)
+                raise
+        else:
+            await asyncio.sleep(0.02)  # consumer is now waiting to admit row 2
+            if failure == "fatal":
+                return httpx.Response(401, json={"error": "bad key"})
+        return httpx.Response(200, json={"answers": {"d0": {"noul": 0.9}}, "usage": {"cost": 0.01}})
+
+    path = write(tmp_path, "data.txt", "".join(f"row {i}\n" for i in range(20)))
+    code, out, err, _ = jgrep(["matches", path, "-j", "2", "--no-cache", "--budget", "0.005"],
+                             fake=handler)
+    assert code == 2 and not out
+    assert ("401" if failure == "fatal" else "budget") in err
+    assert cancelled == ["row 0"] and len(calls) == 2
 
 
 def test_invert_prob_and_line_numbers(tmp_path):
@@ -372,14 +429,16 @@ def test_malformed_answer_reports_error_and_preserves_later_matches(tmp_path, an
     assert out == "alpha later\n"
     assert f"{f}:1:" in err and "answer" in err
     cache = Cache()
-    key = cache.key("~typesafe/jev-latest", "bad answer", cli_module.question("alpha"))
+    key = cache.key("~typesafe/jev-latest", "bad answer", cli_module.question("alpha"),
+                    api="openrouter", url=BACKENDS["openrouter"].endpoint())
     assert cache.get(key) is None
     cache.db.close()
 
 
 def test_malformed_cached_answer_does_not_block_later_matches(tmp_path):
     cache = Cache()
-    key = cache.key("~typesafe/jev-latest", "bad answer", cli_module.question("alpha"))
+    key = cache.key("~typesafe/jev-latest", "bad answer", cli_module.question("alpha"),
+                    api="openrouter", url=BACKENDS["openrouter"].endpoint())
     cache.put(key, {})
     cache.db.close()
     f = write(tmp_path, "a.txt", "bad answer\nalpha later\n")

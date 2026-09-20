@@ -126,6 +126,41 @@ func Identity[T any](value T) T { return value }
         assert source[rec.start:rec.end] == rec.text
 
 
+@pytest.mark.parametrize("separator", ["\u0085", "\u2028", "\u2029", "\v", "\f"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+def test_python_spans_use_physical_lines_not_unicode_separators(separator, newline):
+    first = f'def first():\n    """left{separator}right"""\n    return "é"\n'.replace("\n", newline)
+    second = "def second():\n\f    return 2\n".replace("\n", newline)
+    source = first + newline + second
+    rows = list(function_records(source, "source.py"))
+    assert [r.text for r in rows] == [first, second]
+    assert [(r.lineno, r.end_line) for r in rows] == [(1, 3), (5, 6)]
+    for rec in rows:
+        assert source[rec.start:rec.end] == rec.text
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_go_functions_sharing_a_line_have_separate_character_spans(newline):
+    pytest.importorskip("tree_sitter_go")
+    first = 'func Écho() string { return "é\u2028text" }'
+    second = "func Second() {}" + newline
+    source = "package main" + newline + first + "; " + second
+    rows = list(function_records(source, "source.go"))
+    assert [r.text for r in rows] == [first, second]
+    assert [r.unit["symbol"] for r in rows] == ["Écho", "Second"]
+    assert [(r.lineno, r.end_line) for r in rows] == [(2, 2), (2, 2)]
+    for rec in rows:
+        assert source[rec.start:rec.end] == rec.text
+
+
+def test_go_doc_comments_do_not_pull_in_previous_function():
+    pytest.importorskip("tree_sitter_go")
+    source = ('package main\nfunc First() {} // belongs to First\n'
+              '// Second documentation\nfunc Second() {}\n')
+    rows = list(function_records(source, "source.go"))
+    assert rows[1].text == '// Second documentation\nfunc Second() {}\n'
+
+
 @pytest.mark.parametrize("name,source", [("bad.py", "def invalid(\n"), ("bad.go", "package main\nfunc f( {\n")])
 def test_invalid_syntax_fails_without_partial_function_results(tmp_path, name, source):
     if name.endswith(".go"):
