@@ -146,11 +146,14 @@ shift locations.
 header, message and diffstat are skipped, and its hunks carry the commit id as `unit.commit`, which
 is null for a plain patch. Such a stream is read one commit at a time, so memory follows the
 largest commit, not the length of the history. Commit ids are recognized in Git's default header
-(`commit <id>`, full or abbreviated) and in mbox separators. With `--oneline` or a custom `--format`
-no id is recognized: hunks carry none, `-W` reads the working tree and reports `source_mismatch`
-where it differs, and unindented message text can be rejected as content outside a hunk. A commit
-without a patch, such as a merge, has no records. A commit whose patch cannot be read, such as a combined merge diff, is an error
-naming that commit, and later commits are still read.
+(`commit <id>`, full or abbreviated down to four hex digits) and in mbox separators. In a
+`git format-patch` mail the patch begins after the last `---` separator, so a message that itself
+contains `diff --git` is not mistaken for the patch, and the trailing `-- ` signature is not read as
+diff content. With `--oneline` or a custom `--format` no id is recognized: hunks carry none, `-W`
+reads the working tree and reports `source_mismatch` where it differs, and unindented message text
+can be rejected as content outside a hunk. A commit without a patch, such as a merge, has no
+records. A commit whose patch cannot be read, such as a combined merge diff or one with a malformed
+quoted path, is an error naming that commit, and later commits are still read.
 
 For diff JSON, `file`, `line`, and `end_line` locate the hunk in the **input patch**, while `unit`
 contains `commit`, `old_file`, `new_file`, `old_start`, `old_count`, `new_start`, and `new_count`.
@@ -175,6 +178,20 @@ the lines on both sides of a removal. Unchanged hunk lines that reach into a nei
 do not pull it in. When a change touches several functions, the context runs from the first to the
 last of them.
 
+`-W` reads files that the patch names and sends the enclosing function to the API, so point
+`--repo` at a repository you trust. A patch is treated as untrusted input. jgrep confirms the
+repository's own work tree before reading it: the allowed root is the directory that holds
+`--repo`'s `.git`, found without consulting repository config, and if Git reports its work tree
+elsewhere (`core.worktree`, `GIT_WORK_TREE`) the run stops rather than reading outside files.
+Working-tree paths are resolved with their symlinks and must stay inside that root, so `..`, an
+absolute path, or a symlink pointing outward is refused. Every Git call runs with a fixed argument
+list, never a shell, and with an environment (`GIT_NO_LAZY_FETCH`, `GIT_NO_REPLACE_OBJECTS`,
+`GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `protocol.ext.allow=never`) that keeps a hostile
+repository from fetching a named object from a promisor remote, following object replacements, or
+prompting. This is not a sandbox: `--repo`'s object database and `objects/info/alternates` are
+trusted, and a repository you do not control can still cost proportional time by naming large
+objects. A source file larger than 10 MiB is not read at all (`source_too_large`).
+
 Context is never dropped silently. A hunk that cannot be given its function is judged alone, with
 exactly the request plain `--diff` sends, so the two share cached answers. The reason is counted:
 
@@ -184,7 +201,8 @@ exactly the request plain `--diff` sends, so the two share cached answers. The r
 | `deletion_only` | The hunk leaves no new-side lines (`+N,0`, as with `-U0`), so nothing places it in the file or confirms the file is the right one. A removal that keeps its unchanged lines, as Git writes by default, does get its function. |
 | `unsupported_language` | The extension is not `.py`, `.go`, `.c` or `.h`. |
 | `parser_unavailable` | The file is Go or C and the `[code]` extra is not installed. |
-| `source_unavailable` | The commit or path is not in `--repo`, or the working-tree file cannot be read. |
+| `source_unavailable` | The commit or path is not in `--repo`, or the working-tree file cannot be read (missing, a directory, a device, a named pipe, or outside the repository). |
+| `source_too_large` | The new-side file is larger than 10 MiB, so it is not read or parsed. |
 | `source_mismatch` | The file does not contain the hunk's new-side lines at that position: another checkout, a reversed patch, or edits made since the patch was written. |
 | `syntax_error` | The file did not parse or, in C, the change lies in a function or region the parser could not read. |
 | `outside_function` | The changed lines are not inside a function. |
@@ -197,10 +215,11 @@ The totals are printed to stderr whenever a hunk was judged alone or a context w
 
 The hunk is the judged unit and the function is context, so sizes follow `-C`, where a line and each
 neighbour have their own limit. A hunk over `--max-chars` still fails with its size and location,
-with or without `-W`. A function over `--max-chars` is shortened, not refused: the whole lines
-nearest the change are kept up to `--max-chars`, the header above the context states which lines
-are shown, `unit.context.truncated` is true, and the run reports how many contexts were shortened.
-One request therefore holds at most `--max-chars` of hunk and `--max-chars` of context.
+with or without `-W`. A function over `--max-chars` is shortened, not refused: the context, its
+one-line header included, is held to `--max-chars` by keeping the whole lines nearest the change,
+the header states which lines are shown, `unit.context.truncated` is true, and the run reports how
+many contexts were shortened. One request therefore holds at most `--max-chars` of hunk and
+`--max-chars` of context.
 `--estimate` prices that same request, and `--emit-records` adds a `context` field with the text
 the judge would see after the hunk, or null when the hunk is judged alone.
 

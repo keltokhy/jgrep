@@ -19,6 +19,19 @@
 - Count patch lines at line feeds only. A form feed or lone carriage return inside a source line
   previously made a valid patch fail.
 - Do not print Python `SyntaxWarning`s raised by the source files being read.
+- Confine `-W` to the repository. The allowed root is found without trusting repository config, so
+  a repository that points `core.worktree` or `GIT_WORK_TREE` outside itself stops the run instead
+  of reading outside files; working-tree paths are resolved with their symlinks and refused when
+  they leave the repository; and Git runs with a fixed argument list and an environment that blocks
+  promisor fetches, object replacement, and prompts. Treat `--repo` as a repository you trust.
+- Bound the source `-W` reads: a new-side file larger than 10 MiB is a counted `source_too_large`
+  fallback, read neither from a commit nor the working tree, and a named pipe no longer blocks.
+- Trim `git format-patch` mails: read the patch after the last `---` separator and stop at the `-- `
+  signature, so a message containing `diff --git` or a dash-led signature no longer voids the patch.
+- Recognize abbreviated commit ids down to four hex digits (`git log --abbrev-commit`).
+- Keep reading a stream after a commit with a malformed quoted path, and report skipped C before a
+  file's functions so a match limit or quiet mode cannot end the run with it unreported.
+- Read a Python source file that begins with a byte-order mark instead of reporting a syntax error.
 
 ## 0.2.1
 
