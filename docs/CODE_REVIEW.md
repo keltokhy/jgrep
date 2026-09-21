@@ -15,6 +15,8 @@ URL/commit nor raw outputs. Its reported 22,054-line run could not be reproduced
 test related behaviors: removed error checks, rollback, comments, existing ignored errors,
 temporary-file cleanup, deleted functions, and changes that preserve or improve error handling.
 
+See [the README](../README.md) for the supported input modes and their limitations.
+
 ## Complete changes
 
 Task: identify a change that starts silently ignoring a persistent-write or rollback failure
