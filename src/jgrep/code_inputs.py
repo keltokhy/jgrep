@@ -28,8 +28,10 @@ def git_path(value: str) -> str | None:
         return None
     if value.startswith('"') and value.endswith('"'):
         try:
-            # Git quotes non-ASCII bytes as octal escapes, unlike JSON.
-            value = ast.literal_eval("b" + value).decode("utf-8")
+            # Git uses octal escapes for bytes, but core.quotePath=false leaves UTF-8 raw.
+            # Escape only those raw bytes before evaluating the byte literal; existing escapes stay.
+            literal = "".join(f"\\{byte:03o}" if byte >= 128 else chr(byte) for byte in value.encode("utf-8"))
+            value = ast.literal_eval("b" + literal).decode("utf-8")
         except (ValueError, SyntaxError, UnicodeError) as e:
             raise ValueError(f"malformed quoted path {value}: {e}") from e
     return value[2:] if value.startswith(("a/", "b/")) else value
@@ -72,7 +74,9 @@ def _commit_segments(lines):
             for pattern, is_mbox in patterns:
                 match = pattern.match(line.rstrip("\r\n"))
                 if match:
-                    if block:
+                    # `git show <annotated tag>` puts tag metadata before its first commit.
+                    tag = commit is None and not is_mbox and block and block[0].startswith("tag ")
+                    if block and not tag:
                         yield commit, first, block, mbox
                     patterns = ((pattern, is_mbox),)
                     commit, first, block, mbox = match.group(1), number, [], is_mbox
@@ -80,6 +84,29 @@ def _commit_segments(lines):
         block.append(line)
     if block:
         yield commit, first, block, mbox
+
+
+def _commit_patch_tail(lines: list[str], mbox: bool) -> list[str]:
+    """Remove only a commit's trailing separator/signature, preserving physical hunk offsets."""
+    end = len(lines)
+    if mbox:
+        old = new = 0
+        for i, line in enumerate(lines):
+            # A removed source line may itself be `-- `, so recognize signatures only outside hunks.
+            if old <= 0 and new <= 0 and line.rstrip("\r\n") in ("-- ", "--"):
+                end = i
+                break
+            header = re.match(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@", line)
+            if header:
+                old, new = (int(n) if n is not None else 1 for n in header.groups())
+            elif old > 0 or new > 0:
+                old -= line.startswith((" ", "-"))
+                new -= line.startswith((" ", "+"))
+    # unidiff rejects a blank separator after a hunkless last file. A space-prefixed empty
+    # context line belongs to a hunk, however, and must never be stripped here.
+    while end and not lines[end - 1].rstrip("\r\n"):
+        end -= 1
+    return lines[:end]
 
 
 def diff_records(source, label: str):
@@ -98,7 +125,8 @@ def diff_records(source, label: str):
         start = max((i + 1 for i, line in enumerate(lines) if mbox and line.rstrip("\r\n") == "---"), default=0)
         body = next((i for i in range(start, len(lines)) if lines[i].startswith("diff --")), len(lines))
         try:
-            yield from _patch_records(lines[body:], first - 1 + body, label, commit, signature=mbox)
+            patch_lines = _commit_patch_tail(lines[body:], mbox)
+            yield from _patch_records(patch_lines, first - 1 + body, label, commit, signature=mbox)
         except (ValueError, SyntaxError, UnicodeError) as e:  # a bad path or hunk fails its commit only
             yield f"{label}:{first}: commit {commit[:12]}: {e}"  # later commits are still read
 
@@ -265,7 +293,15 @@ def _c_spans(text: str):
                 visit(child, True, True)
                 last = spans[found][0] - 1 if len(spans) > found else child.end_point.row + 1
                 if not in_function:
-                    skipped.append((child.start_point.row + 1, last, f"function {name or '?'!r} at line {child.start_point.row + 1}"))
+                    first = child.start_point.row + 1
+                    skipped.append((first, last, f"lines {first}-{last}" if last > first else f"line {first}"))
+                continue
+            if child.type == "compound_statement" and not in_function:
+                # A macro-headed body can parse as a call with a missing semicolon followed by a
+                # bare block, without an ERROR node. Report the whole region that nobody read.
+                before = child.prev_sibling
+                first = before.start_point.row if before is not None and before.has_error else child.start_point.row
+                unplaced.update(range(first, child.end_point.row + 1))
                 continue
             if (node.type == "ERROR" and not in_function and child.type not in _C_RECOVERED
                     and not child.type.startswith("preproc_")):

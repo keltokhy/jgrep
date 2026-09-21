@@ -61,7 +61,8 @@ def estimate(stream, args, questions, make_state, function_questions=None):
             missing = {}
             fresh = {}
             # The enclosing function is part of the request, so it is part of the price.
-            for qid, q in (function_questions if rec.context else questions).items():
+            asked = function_questions[bool(rec.unit["commit"])] if rec.context else questions
+            for qid, q in asked.items():
                 key = Cache.key(model, state, q, api=backend.name, url=url)
                 row = cache.execute("SELECT answer FROM answers WHERE key=?", (key,)).fetchone() if cache else None
                 if row:

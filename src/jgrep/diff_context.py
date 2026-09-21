@@ -230,7 +230,8 @@ class FunctionContext:
             return "function_in_hunk"
 
         noun = "function" if len(enclosing) == 1 else "functions"
-        prefix = f"Enclosing {noun} after this change ({path} lines {first}-{last}"
+        when = "after this change" if unit["commit"] else "as it reads in the working tree"
+        prefix = f"Enclosing {noun} {when} ({path} lines {first}-{last}"
         full = "".join(lines[first - 1:last])
         whole_header = prefix + "), shown only as context:\n"
         if len(whole_header) + len(full) <= self.max_chars:
@@ -239,8 +240,10 @@ class FunctionContext:
         else:
             # The function is context, not the judged unit, so it may be shortened to fit --max-chars,
             # header included: keep the whole lines nearest the change, as -C keeps a record's neighbours.
-            # Reserve room using the widest possible "showing" clause so the final line never overruns.
-            reserved = len(prefix + f", showing lines {first}-{last} nearest the change), shown only as context:\n")
+            # Keep committed context windows stable. For the longer working-tree label, budget
+            # both line numbers at their widest so the final header cannot overrun the cap.
+            reserve_first = first if unit["commit"] else last
+            reserved = len(prefix + f", showing lines {reserve_first}-{last} nearest the change), shown only as context:\n")
             low, high, body = self._shorten(lines, first, last, added + removed_before, max(0, self.max_chars - reserved))
             shown = "" if (low, high) == (first, last) else f", showing lines {low}-{high} nearest the change"
             text = prefix + shown + "), shown only as context:\n" + body
