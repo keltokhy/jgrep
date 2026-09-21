@@ -309,12 +309,12 @@ def test_macro_heavy_c_emits_error_free_functions_and_reports_what_it_skipped(tm
         assert MACRO_HEAVY[rec.start:rec.end] == rec.text
     # The unbalanced #if branches hide split_by_if from the parser; va_arg(ap, char *) is an error
     # inside a function it still recognizes. The prototype and extern "C" guard hold no body.
-    assert problems == [(11, 21, "lines 11-21"), (23, 27, "function 'type_as_macro_argument' at line 23")]
+    assert problems == [(11, 21, "lines 11-21"), (23, 27, "lines 23-27")]
 
     code, out, err, fake = jgrep(["alpha", write(tmp_path, "macros.c", MACRO_HEAVY), "--functions", "-p", "0", "--json"])
     assert code == 2 and len(fake.bodies) == 2
     assert [json.loads(line)["unit"]["symbol"] for line in out.splitlines()] == ["clean_before", "clean_after"]
-    assert err.count("\n") == 1 and "lines 11-21, function 'type_as_macro_argument' at line 23" in err
+    assert err.count("\n") == 1 and "lines 11-21, lines 23-27" in err
     assert "macro or #if" in err and "Other functions were read" in err
 
 
@@ -322,7 +322,7 @@ def test_c_problem_report_is_one_bounded_message_per_file():
     pytest.importorskip("tree_sitter_c")
     source = "".join(f"int f{i}(va_list ap)\n{{\n  return va_arg(ap, char *) != 0;\n}}\n" for i in range(8))
     *rows, message = function_records(source, "many.c")
-    assert not rows and "function 'f4' at line 17 and 3 more" in message and "f5" not in message
+    assert not rows and "lines 17-20 and 3 more" in message and "lines 21-24" not in message
 
 
 def test_c_language_is_inferred_for_headers_and_required_for_other_names(tmp_path):
@@ -475,7 +475,7 @@ def test_skipped_c_is_reported_even_when_the_first_match_ends_the_run(tmp_path):
     path = write(tmp_path, "many.c", source)
     for flags in (["-m", "1"], ["-q"], ["-l"]):
         code, out, err, fake = jgrep(["alpha", path, "--functions", "-j", "2", *flags])
-        assert code == (0 if flags == ["-q"] else 2) and "function 'skipped' at line 161" in err, flags
+        assert code == (0 if flags == ["-q"] else 2) and "lines 161-165" in err, flags
     first, *_ = function_records(source, "many.c")
     assert isinstance(first, str) and "skipped" in first
 

@@ -129,7 +129,7 @@ def test_hunk_is_judged_with_its_enclosing_function_and_printed_alone(tmp_path, 
     # Only the hunk is printed; the function reaches the judge after it, labelled as context.
     assert row["text"].startswith(f"--- a/{name}\n+++ b/{name}\n@@ ") and marker not in row["text"].split("@@")[2][:1]
     assert fake.bodies[0]["state"] == (
-        row["text"] + f"\nEnclosing function after this change ({name} lines {lines}), shown only as context:\n" + function)
+        row["text"] + f"\nEnclosing function as it reads in the working tree ({name} lines {lines}), shown only as context:\n" + function)
     assert "function that encloses the change" in fake.bodies[0]["questions"]["d0"]["instructions"]
 
     # The offline export shows the same context the judge would see.
