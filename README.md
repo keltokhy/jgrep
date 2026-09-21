@@ -150,10 +150,18 @@ largest commit, not the length of the history. Commit ids are recognized in Git'
 `git format-patch` mail the patch begins after the last `---` separator, so a message that itself
 contains `diff --git` is not mistaken for the patch, and the trailing `-- ` signature is not read as
 diff content. With `--oneline` or a custom `--format` no id is recognized: hunks carry none, `-W`
-reads the working tree and reports `source_mismatch` where it differs, and unindented message text
-can be rejected as content outside a hunk. A commit without a patch, such as a merge, has no
+reads the working tree and reports `source_mismatch` if the hunk's new-side lines differ at their
+given position. Unindented message text can be rejected as content outside a hunk.
+A commit without a patch, such as a merge, has no
 records. A commit whose patch cannot be read, such as a combined merge diff or one with a malformed
 quoted path, is an error naming that commit, and later commits are still read.
+An annotated tag's preamble is skipped. A final rename, mode-only change or empty-file change
+still reports a metadata-only error, while the same commit's text hunks are judged. Quoted paths
+decode both Git's octal byte escapes and raw UTF-8 from `core.quotePath=false`.
+
+Two pre-existing diff-reader limitations remain: CRLF-converted patches can leave a trailing `\r`
+in `new_file` (for example, `"a.py\r"`) and produce spurious metadata-only errors; Git-quoted paths
+containing spaces can also produce a spurious metadata-only error.
 
 For diff JSON, `file`, `line`, and `end_line` locate the hunk in the **input patch**, while `unit`
 contains `commit`, `old_file`, `new_file`, `old_start`, `old_count`, `new_start`, and `new_count`.
@@ -164,7 +172,7 @@ Missing file sides are null; zero-length ranges retain the unified diff's insert
 
 A hunk carries three unchanged lines either side of a change, which is often too little to tell
 whether a removed check mattered. `-W` (`--function-context`, named after `git diff -W`) judges each
-hunk together with the function that encloses it, as that function reads after the change. It is
+hunk together with the function that encloses it, read from the commit or working tree. It is
 still one decision per hunk and only the hunk is printed: the contract `-C` has for lines.
 
 When a hunk carries a commit id, the new side of its file is read from that commit in `--repo DIR`
@@ -172,11 +180,16 @@ When a hunk carries a commit id, the new side of its file is read from that comm
 prints, fetched through one `git cat-file --batch` process. Otherwise the file is read from the
 working tree, with patch paths taken from the repository root; a path that leaves the repository
 is not read. In both cases the file must contain the hunk's new-side lines at the hunk's position,
-or it is treated as the wrong file. Functions come from the readers `--functions` uses: Python, and
-Go and C with the `[code]` extra. A function encloses the change when it contains an added line, or
+or context falls back to `source_mismatch`. This checks only those lines at that position, not the
+file's identity or its remaining contents: a different file with identical lines at the same
+position would also attach. Without a commit id, the context is labelled "as it reads in the
+working tree"; that tree may contain later edits outside the hunk. Functions come from the readers
+`--functions` uses: Python, and Go and C with the `[code]` extra. A function encloses the change
+when it contains an added line, or
 the lines on both sides of a removal. Unchanged hunk lines that reach into a neighbouring function
 do not pull it in. When a change touches several functions, the context runs from the first to the
-last of them.
+last of them. A removal at the very end of a Python function can fall outside the remaining span
+and be counted as `outside_function`.
 
 `-W` reads files that the patch names and sends the enclosing function to the API, so point
 `--repo` at a repository you trust. A patch is treated as untrusted input. jgrep confirms the
@@ -198,7 +211,7 @@ exactly the request plain `--diff` sends, so the two share cached answers. The r
 | Reason | The hunk is judged alone because |
 |---|---|
 | `deleted_file` | The file does not exist after the change. |
-| `deletion_only` | The hunk leaves no new-side lines (`+N,0`, as with `-U0`), so nothing places it in the file or confirms the file is the right one. A removal that keeps its unchanged lines, as Git writes by default, does get its function. |
+| `deletion_only` | The hunk leaves no new-side lines (`+N,0`, as with `-U0`), so there are no lines to check against the file. A removal with unchanged lines can get context if it lies inside the remaining function span. |
 | `unsupported_language` | The extension is not `.py`, `.go`, `.c` or `.h`. |
 | `parser_unavailable` | The file is Go or C and the `[code]` extra is not installed. |
 | `source_unavailable` | The commit or path is not in `--repo`, or the working-tree file cannot be read (missing, a directory, a device, a named pipe, or outside the repository). |
@@ -244,7 +257,9 @@ macro on a parameter, a type passed to a macro (`va_arg(ap, char *)`), or an `#i
 statement each leave an error in the syntax tree. Refusing those files would refuse most C, so the
 rule applies per function. A function is emitted only when the parser read all of it without
 error. A function with an error inside it, or an unparsed region that could hold one, is skipped
-and named in one error per file, with exit status 2; the file's other functions are still judged.
+and reported by its covered line range in one error per file, with exit status 2; the file's other
+functions are still judged. This includes macro-headed bodies such as `TEST(Suite, Name) { ... }`
+and `SYSCALL_DEFINE2(...) { ... }`; with `-W`, changes inside these regions use `syntax_error`.
 Errors in text with no parameter list and brace, such as a prototype carrying an unknown macro or
 an `extern "C"` guard, cannot hide a function and are not reported. A macro that expands to a whole
 definition or to braces is invisible to this reader. `.h` is read as C, so C++ and Objective-C

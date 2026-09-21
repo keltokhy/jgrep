@@ -2,10 +2,19 @@
 
 ## Unreleased
 
+- Label context without a commit id as the function in the working tree, including in the judge's
+  question. Only the hunk's new-side lines at their given position are checked; surrounding code
+  may have changed. Plain diff and fallback requests retain their existing questions and cache keys.
+- Report macro-headed C bodies that parse as a call followed by a bare block, and count changes
+  inside them as `syntax_error` under `-W`. Skipped C diagnostics give the whole covered line range
+  instead of a function name that may belong to a preceding prototype.
+- Preserve text hunks in commit streams ending in a rename, mode-only change or empty-file change;
+  trim trailing separators and mail signatures without shifting input locations. Skip annotated-tag
+  preambles, and decode quoted paths containing raw UTF-8 as well as octal byte escapes.
 - Add C to `--functions` through Tree-sitter in the `[code]` extra: `--lang c`, inferred from `.c`
   and `.h`. Functions the parser read without error are emitted with adjacent comments and exact
   spans. Functions and regions it cannot read, usually around a macro or `#if`, are skipped and
-  named in one error per file rather than failing the file or guessing at boundaries.
+  reported by line range in one error per file rather than failing the file or guessing at boundaries.
 - Read `git log -p`, `git show` and `git format-patch` streams with `--diff`, one commit at a time.
   These were previously rejected as content outside a hunk. Hunks carry the commit id as
   `unit.commit` (null for a plain patch), export IDs include it, and a commit whose patch cannot be
@@ -32,6 +41,9 @@
 - Keep reading a stream after a commit with a malformed quoted path, and report skipped C before a
   file's functions so a match limit or quiet mode cannot end the run with it unreported.
 - Read a Python source file that begins with a byte-order mark instead of reporting a syntax error.
+- Leave two pre-existing diff-reader issues outside this change: CRLF-converted patches can retain
+  `\r` in `new_file` and add spurious metadata-only errors; quoted paths with spaces can also add
+  a spurious metadata-only error.
 
 ## 0.2.1
 
