@@ -6,6 +6,19 @@
   and `.h`. Functions the parser read without error are emitted with adjacent comments and exact
   spans. Functions and regions it cannot read, usually around a macro or `#if`, are skipped and
   named in one error per file rather than failing the file or guessing at boundaries.
+- Read `git log -p`, `git show` and `git format-patch` streams with `--diff`, one commit at a time.
+  These were previously rejected as content outside a hunk. Hunks carry the commit id as
+  `unit.commit` (null for a plain patch), export IDs include it, and a commit whose patch cannot be
+  read no longer hides later commits.
+- Add `-W`/`--function-context` and `--repo` for `--diff`: judge each hunk with the Python, Go or C
+  function that encloses it, read at the hunk's commit or from the working tree, while printing the
+  hunk alone. Hunks that cannot be given a function are judged alone and counted by reason in
+  stderr, `unit.context`, and `--estimate --json`. Oversized functions are shortened around the
+  change and reported; oversized hunks still fail. `--estimate` prices the context and
+  `--emit-records` shows it.
+- Count patch lines at line feeds only. A form feed or lone carriage return inside a source line
+  previously made a valid patch fail.
+- Do not print Python `SyntaxWarning`s raised by the source files being read.
 
 ## 0.2.1
 

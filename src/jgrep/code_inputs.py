@@ -7,6 +7,8 @@ import bisect
 import hashlib
 import importlib
 import io
+import re
+import warnings
 from pathlib import Path
 
 from unidiff import PatchSet, UnidiffParseError
@@ -14,6 +16,10 @@ from unidiff import PatchSet, UnidiffParseError
 from .inputs import FUNCTION_LANGUAGES, Record
 
 MAX_PROBLEMS_NAMED = 5
+
+
+class ParserUnavailable(ValueError):
+    """The optional Tree-sitter parsers are not installed."""
 
 
 def git_path(value: str) -> str | None:
@@ -26,19 +32,80 @@ def git_path(value: str) -> str | None:
     return value[2:] if value.startswith(("a/", "b/")) else value
 
 
-def diff_records(text: str, label: str):
-    """One complete unified hunk, retaining both sides and its unchanged context."""
+# Default `git log -p` / `git show` headers, and the mbox separator written by `git format-patch`.
+_LOG_COMMIT = re.compile(r"commit ([0-9a-f]{7,64})(?: \(.*\))?$")  # --abbrev-commit shortens the id
+_MBOX_COMMIT = re.compile(r"From ([0-9a-f]{40}|[0-9a-f]{64}) \w{3} \w{3} [ \d]\d \d\d:\d\d:\d\d \d{4}$")
+
+
+def _lf_lines(source):
+    """Lines ending at LF only, as Git and unidiff count them.
+
+    str.splitlines and universal-newline readers also break at form feeds and lone carriage
+    returns inside a source line, which would shift every later patch line number.
+    """
+    source = io.StringIO(source) if isinstance(source, str) else source
+    tail = ""
+    while chunk := source.read(1 << 20):
+        *whole, tail = (tail + chunk).split("\n")
+        for line in whole:
+            yield line + "\n"
+    if tail:
+        yield tail
+
+
+def _commit_segments(lines):
+    """Split a patch stream at commit headers: (commit id or None, first line number, lines).
+
+    A hunk line starts with a space, sign or backslash, so a header at column 0 cannot be patch
+    content. Unindented mbox messages can mention a commit, so the first header seen fixes which
+    of the two formats separates this stream.
+    """
+    patterns = (_LOG_COMMIT, _MBOX_COMMIT)
+    commit, first, block = None, 1, []
+    for number, line in enumerate(lines, 1):
+        if line.startswith(("commit ", "From ")):
+            for pattern in patterns:
+                match = pattern.match(line.rstrip("\r\n"))
+                if match:
+                    if block:
+                        yield commit, first, block
+                    patterns, commit, first, block = (pattern,), match.group(1), number, []
+                    break
+        block.append(line)
+    if block:
+        yield commit, first, block
+
+
+def diff_records(source, label: str):
+    """One complete unified hunk, retaining both sides and its unchanged context.
+
+    `source` is patch text or a text file. `git log -p` and `git format-patch` streams are read one
+    commit at a time, and each hunk carries its commit id. Line numbers locate hunks in the input.
+    """
+    for commit, first, lines in _commit_segments(_lf_lines(source)):
+        if commit is None:
+            yield from _patch_records(lines, first - 1, label, None)
+            continue
+        # The header, message and diffstat are not patch content; a merge may have no patch at all.
+        body = next((i for i, line in enumerate(lines) if line.startswith("diff --")), len(lines))
+        try:
+            yield from _patch_records(lines[body:], first - 1 + body, label, commit)
+        except ValueError as e:
+            yield f"{label}:{first}: commit {commit[:12]}: {e}"  # later commits are still read
+
+
+def _patch_records(lines: list[str], offset: int, label: str, commit: str | None):
+    text = "".join(lines)
     if not text.strip():
         return
-    if any(line.startswith(("@@@", "diff --cc ", "diff --combined ")) for line in text.splitlines()):
+    if any(line.startswith(("@@@", "diff --cc ", "diff --combined ")) for line in lines):
         raise ValueError("combined merge diffs are unsupported; use git diff --diff-merges=separate")
     try:
-        patch = PatchSet(io.StringIO(text))
+        patch = PatchSet(lines)
     except (UnidiffParseError, UnboundLocalError, AttributeError) as e:
         raise ValueError(f"invalid unified diff: {e}") from e
     if not patch:
         raise ValueError("expected a unified diff (git diff --no-color), not ordinary text")
-    lines = text.splitlines(keepends=True)
     # The parser accepts some unknown lines as metadata. Reject malformed hunk headers.
     parsed_headers = sum(len(file) for file in patch)
     if sum(line.startswith("@@") for line in lines) != parsed_headers:
@@ -58,15 +125,16 @@ def diff_records(text: str, label: str):
         elif line.startswith("+++ "):
             new_headers += 1
         elif line.startswith(("+", "-", " ")) and line.strip() and line != "-- \n":
-            raise ValueError(f"unexpected diff content outside a hunk at line {number}")
+            raise ValueError(f"unexpected diff content outside a hunk at line {number + offset}")
     if old_headers != new_headers:
         raise ValueError("unpaired source/target file headers")
+    where = label if commit is None else f"{label}: commit {commit[:12]}"
     for file in patch:
         if file.is_binary_file:
-            yield f"{label}: binary change {file.path!r} cannot be judged as a text diff"
+            yield f"{where}: binary change {file.path!r} cannot be judged as a text diff"
             continue
         if not file:
-            yield f"{label}: metadata-only change {file.path!r} has no text hunks to judge"
+            yield f"{where}: metadata-only change {file.path!r} has no text hunks to judge"
             continue
         for number, hunk in enumerate(file, 1):
             body = [line for line in hunk if line.diff_line_no is not None]
@@ -79,16 +147,18 @@ def diff_records(text: str, label: str):
                 last += 1
             raw = "".join(lines[first - 1:last])
             old, new = git_path(file.source_file), git_path(file.target_file)
-            unit = {"kind": "diff", "hunk": number, "old_file": old, "new_file": new,
+            unit = {"kind": "diff", "hunk": number, "commit": commit, "old_file": old, "new_file": new,
                     "old_start": hunk.source_start, "old_count": hunk.source_length,
                     "new_start": hunk.target_start, "new_count": hunk.target_length}
             # Repeating the file headers makes every hunk independently interpretable.
             excerpt = f"--- {file.source_file}\n+++ {file.target_file}\n" + raw
-            yield Record(0, label, first, excerpt, end_line=last, unit=unit)
+            yield Record(0, label, first + offset, excerpt, end_line=last + offset, unit=unit)
 
 
 def _python_spans(text: str):
-    tree = ast.parse(text)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SyntaxWarning)  # the source is data; its warnings are not jgrep's
+        tree = ast.parse(text)
 
     def visit(node, scope=""):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -108,7 +178,7 @@ def _syntax_tree(text: str, grammar: str, title: str):
         module = importlib.import_module(grammar)
         from tree_sitter import Language, Parser
     except ImportError as e:
-        raise ValueError(f"{title} functions require the code extra: uv tool install --reinstall 'jev-grep[code]'") from e
+        raise ParserUnavailable(f"{title} functions require the code extra: uv tool install --reinstall 'jev-grep[code]'") from e
     encoded = text.encode("utf-8")
     return encoded, Parser(Language(module.language())).parse(encoded).root_node
 
@@ -255,19 +325,28 @@ def function_records(text: str, label: str, language: str | None = None):
                f"{named}{more}. Other functions were read")
 
 
-def code_records(text: str, label: str, args, stop):
+def code_records(source, label: str, args, stop):
+    context = None
+    if args.function_context:
+        from .diff_context import FunctionContext
+        context = FunctionContext(args.repo, args.max_chars)
     try:
-        stream = diff_records(text, label) if args.diff else function_records(text, label, args.lang)
+        stream = diff_records(source, label) if args.diff else function_records(source.read(), label, args.lang)
         for item in stream:
             if stop.is_set():
                 return
             if isinstance(item, Record) and len(item.text) > args.max_chars:
                 yield (f"{label}:{item.lineno}: complete {item.unit['kind']} is {len(item.text)} characters; "
                        f"exceeds --max-chars {args.max_chars}. Raise the limit; code units are never truncated")
-            else:
-                yield item
+                continue
+            if context and isinstance(item, Record):
+                context.attach(item)
+            yield item
     except (ValueError, SyntaxError, UnicodeError) as e:
         yield f"{label}: {e}"
+    finally:
+        if context:
+            context.close()
 
 
 def export_record(rec: Record) -> dict:
@@ -276,7 +355,11 @@ def export_record(rec: Record) -> dict:
     location = f"{rec.file}:{rec.lineno}-{rec.end_line or rec.lineno}"
     if rec.unit and rec.unit["kind"] == "diff":
         d = rec.unit
-        location += f":{d['new_file'] or d['old_file']}:-{d['old_start']}+{d['new_start']}"
-    return {"schema_version": 1, "id": f"{location}:{digest}", "text": rec.text,
-            "source": rec.file, "line": rec.lineno, "end_line": rec.end_line,
-            "start": rec.start, "end": rec.end, "unit": rec.unit}
+        commit = f"@{d['commit'][:12]}" if d["commit"] else ""
+        location += f":{d['new_file'] or d['old_file']}{commit}:-{d['old_start']}+{d['new_start']}"
+    row = {"schema_version": 1, "id": f"{location}:{digest}", "text": rec.text,
+           "source": rec.file, "line": rec.lineno, "end_line": rec.end_line,
+           "start": rec.start, "end": rec.end, "unit": rec.unit}
+    if rec.unit and "context" in rec.unit:
+        row["context"] = rec.context  # what the judge is shown after the hunk; null when judged alone
+    return row
