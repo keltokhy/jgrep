@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add C to `--functions` through Tree-sitter in the `[code]` extra: `--lang c`, inferred from `.c`
+  and `.h`. Functions the parser read without error are emitted with adjacent comments and exact
+  spans. Functions and regions it cannot read, usually around a macro or `#if`, are skipped and
+  named in one error per file rather than failing the file or guessing at boundaries.
+
 ## 0.2.1
 
 - Scope answer caches and offline estimates to the provider and endpoint as well as model and input.

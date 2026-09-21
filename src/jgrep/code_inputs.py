@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import ast
+import bisect
 import hashlib
+import importlib
 import io
 from pathlib import Path
 
 from unidiff import PatchSet, UnidiffParseError
 
-from .inputs import Record
+from .inputs import FUNCTION_LANGUAGES, Record
+
+MAX_PROBLEMS_NAMED = 5
 
 
 def git_path(value: str) -> str | None:
@@ -99,14 +103,29 @@ def _python_spans(text: str):
     yield from visit(tree)
 
 
-def _go_spans(text: str):
+def _syntax_tree(text: str, grammar: str, title: str):
     try:
-        import tree_sitter_go
+        module = importlib.import_module(grammar)
         from tree_sitter import Language, Parser
     except ImportError as e:
-        raise ValueError("Go functions require the code extra: uv tool install --reinstall 'jev-grep[code]'") from e
+        raise ValueError(f"{title} functions require the code extra: uv tool install --reinstall 'jev-grep[code]'") from e
     encoded = text.encode("utf-8")
-    root = Parser(Language(tree_sitter_go.language())).parse(encoded).root_node
+    return encoded, Parser(Language(module.language())).parse(encoded).root_node
+
+
+def _with_comments(node, encoded: bytes):
+    """Start of a declaration, moved up over comment lines that sit directly above it."""
+    start = node.start_point
+    previous = node.prev_named_sibling
+    while (previous and previous.type == "comment" and previous.end_point.row + 1 == start.row
+           and not encoded[previous.start_byte - previous.start_point.column:previous.start_byte].strip()):
+        start = previous.start_point
+        previous = previous.prev_named_sibling
+    return start
+
+
+def _go_spans(text: str):
+    encoded, root = _syntax_tree(text, "tree_sitter_go", "Go")
     if root.has_error:
         raise ValueError("invalid Go syntax; refusing partial function extraction")
     for node in root.named_children:
@@ -117,26 +136,98 @@ def _go_spans(text: str):
         receiver = node.child_by_field_name("receiver")
         if receiver:
             symbol = encoded[receiver.start_byte:receiver.end_byte].decode("utf-8") + "." + symbol
-        start = node.start_point
-        previous = node.prev_named_sibling
-        while (previous and previous.type == "comment" and previous.end_point.row + 1 == start.row
-               and not encoded[previous.start_byte - previous.start_point.column:previous.start_byte].strip()):
-            start = previous.start_point
-            previous = previous.prev_named_sibling
+        start = _with_comments(node, encoded)
         yield start.row + 1, node.end_point.row + 1, symbol, start.column, node.end_point.column
 
 
-def function_records(text: str, label: str, language: str | None = None):
-    language = language or {".py": "python", ".go": "go"}.get(Path(label).suffix)
-    if language not in {"python", "go"}:
-        raise ValueError("--functions supports .py and .go; use --lang python|go for stdin")
-    # Python recognizes CR, CRLF and LF; Tree-sitter Go counts LF only. Neither
+# Nodes that hold top-level C items. Both branches of an #if are source text, so both are read.
+_C_CONTAINERS = {"translation_unit", "preproc_if", "preproc_ifdef", "preproc_else", "preproc_elif",
+                 "preproc_elifdef", "linkage_specification", "declaration_list"}
+# Children of an ERROR node that the parser still recovered whole; anything else there is unplaced.
+_C_RECOVERED = {"comment", "declaration", "type_definition", "function_definition",
+                "linkage_specification", "ERROR"}
+
+
+def _c_spans(text: str):
+    """Functions whose own syntax tree is error-free, and the line ranges that were skipped.
+
+    C is parsed before preprocessing, so a macro or an #if that splits a statement leaves ERROR
+    nodes in most real files. Failing the file would make the reader useless; emitting a function
+    around an error would guess at its boundaries. So a function is emitted only when the parser
+    read all of it, and every other range that could hold a function body is reported.
+    """
+    encoded, root = _syntax_tree(text, "tree_sitter_c", "C")
+    lines = encoded.split(b"\n")
+    spans, skipped, unplaced = [], [], set()
+
+    def symbol(node):
+        declarator = node.child_by_field_name("declarator")
+        while declarator is not None and declarator.type != "identifier":
+            # Pointer, function and array declarators nest; a parenthesized one has no field name.
+            declarator = declarator.child_by_field_name("declarator") or next(
+                (c for c in declarator.named_children if c.type == "identifier" or c.type.endswith("declarator")), None)
+        return None if declarator is None else encoded[declarator.start_byte:declarator.end_byte].decode("utf-8")
+
+    def visit(node, everywhere=False, in_function=False):
+        for child in node.children:
+            if child.type == "function_definition":
+                name = symbol(child)
+                if name and not child.has_error:
+                    start = _with_comments(child, encoded)
+                    spans.append((start.row + 1, child.end_point.row + 1, name, start.column, child.end_point.column))
+                    continue  # nested functions remain in their enclosing function's record
+                found = len(spans)
+                # An unbalanced brace can swallow later functions; those are still complete.
+                visit(child, True, True)
+                last = spans[found][0] - 1 if len(spans) > found else child.end_point.row + 1
+                if not in_function:
+                    skipped.append((child.start_point.row + 1, last, f"function {name or '?'!r} at line {child.start_point.row + 1}"))
+                continue
+            if (node.type == "ERROR" and not in_function and child.type not in _C_RECOVERED
+                    and not child.type.startswith("preproc_")):
+                unplaced.update(range(child.start_point.row, child.end_point.row + 1))
+            if child.has_error or everywhere or child.type in _C_CONTAINERS:
+                visit(child, everywhere or child.type == "ERROR", in_function)
+
+    visit(root)
+    starts = sorted(first - 1 for first, *_ in [*spans, *skipped])
+    for first, last, *_ in [*spans, *skipped]:
+        unplaced.difference_update(range(first - 1, last))
+    ranges = []
+    for row in sorted(unplaced):
+        # Declarations and comments recovered inside a broken function stay part of its region;
+        # only another function separates one unparsed region from the next.
+        between = bisect.bisect_right(starts, ranges[-1][1]) if ranges else 0
+        if ranges and (between == len(starts) or starts[between] > row):
+            ranges[-1][1] = row
+        else:
+            ranges.append([row, row])
+    # Without a parameter list and a brace there is no function to lose: a prototype carrying an
+    # unknown macro, or an extern "C" guard, is not worth an error.
+    problems = skipped + [(a + 1, b + 1, f"lines {a + 1}-{b + 1}" if b > a else f"line {a + 1}")
+                          for a, b in ranges if all(mark in b"".join(lines[a:b + 1]) for mark in (b"(", b"{"))]
+    return spans, sorted(problems)
+
+
+def parse_functions(text: str, label: str, language: str | None = None):
+    """Function records, plus (first line, last line, description) for C ranges that were skipped."""
+    language = language or FUNCTION_LANGUAGES.get(Path(label).suffix)
+    if language not in set(FUNCTION_LANGUAGES.values()):
+        raise ValueError("--functions supports .py, .go, .c and .h; use --lang python|go|c for stdin")
+    # Python recognizes CR, CRLF and LF; Tree-sitter counts LF only. Neither
     # treats form feeds or Unicode separators inside source text as new lines.
     lines = list(io.StringIO(text, newline="" if language == "python" else "\n"))
     offsets = [0]
     for line in lines:
         offsets.append(offsets[-1] + len(line))
-    spans = _python_spans(text) if language == "python" else _go_spans(text)
+    problems = []
+    if language == "python":
+        spans = _python_spans(text)
+    elif language == "go":
+        spans = _go_spans(text)
+    else:
+        spans, problems = _c_spans(text)
+    found = []
     for first, last, symbol, first_col, last_col in spans:
         if language == "python":
             while first > 1 and lines[first - 2].lstrip().startswith("#"):
@@ -149,8 +240,19 @@ def function_records(text: str, label: str, language: str | None = None):
             body = lines[last - 1].encode("utf-8")[:last_col].decode("utf-8")
             if lines[last - 1][len(body):].strip():
                 end = offsets[last - 1] + len(body)
-        yield Record(0, label, first, text[start:end], start=start, end=end, end_line=last,
-                     unit={"kind": "function", "language": language, "symbol": symbol})
+        found.append(Record(0, label, first, text[start:end], start=start, end=end, end_line=last,
+                            unit={"kind": "function", "language": language, "symbol": symbol}))
+    return found, problems
+
+
+def function_records(text: str, label: str, language: str | None = None):
+    found, problems = parse_functions(text, label, language)
+    yield from found
+    if problems:
+        named = ", ".join(p[2] for p in problems[:MAX_PROBLEMS_NAMED])
+        more = f" and {len(problems) - MAX_PROBLEMS_NAMED} more" if len(problems) > MAX_PROBLEMS_NAMED else ""
+        yield (f"{label}: skipped C that Tree-sitter could not parse, usually around a macro or #if: "
+               f"{named}{more}. Other functions were read")
 
 
 def code_records(text: str, label: str, args, stop):

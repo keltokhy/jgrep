@@ -29,6 +29,7 @@ jgrep = "jgrep.cli:cli"
 code = [
     "tree-sitter>=0.25,<0.26",
     "tree-sitter-go>=0.25,<0.26",
+    "tree-sitter-c>=0.24,<0.25",
 ]
 
 [dependency-groups]

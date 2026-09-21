@@ -1,10 +1,11 @@
 """Contracts for complete changes, syntax boundaries, provenance, and offline composition."""
 
 import json
+import sys
 
 import pytest
 
-from jgrep.code_inputs import diff_records, function_records
+from jgrep.code_inputs import diff_records, function_records, parse_functions
 from test_cli import env, jgrep, write
 
 
@@ -159,6 +160,163 @@ def test_go_doc_comments_do_not_pull_in_previous_function():
               '// Second documentation\nfunc Second() {}\n')
     rows = list(function_records(source, "source.go"))
     assert rows[1].text == '// Second documentation\nfunc Second() {}\n'
+
+
+C_SOURCE = """#include <stdio.h>
+
+/*
+ * Copies src; the caller frees the result. é
+ */
+static char *copy(const char *src,
+                  size_t len)
+{
+  char *out = malloc(len + 1); /* } does not end a function */
+  memcpy(out, src, len);
+  return out;
+}
+
+// first line
+// second line
+int (*handler(void))(int) { return NULL; }
+int count; // belongs to count
+static inline int twice(int x) { return 2 * x; } int thrice(int x) { return 3 * x; }
+
+#ifdef _WIN32
+static int platform(void)
+{
+  return 1;
+}
+#else
+static int platform(void)
+{
+  return 2;
+}
+#endif
+"""
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_c_functions_keep_comments_symbols_and_exact_character_spans(newline):
+    pytest.importorskip("tree_sitter_c")
+    source = C_SOURCE.replace("\n", newline)
+    rows = list(function_records(source, "copy.c"))
+    assert [r.unit["symbol"] for r in rows] == ["copy", "handler", "twice", "thrice", "platform", "platform"]
+    assert all(r.unit == {"kind": "function", "language": "c", "symbol": r.unit["symbol"]} for r in rows)
+    assert [(r.lineno, r.end_line) for r in rows] == [(3, 12), (14, 16), (18, 18), (18, 18), (21, 24), (26, 29)]
+    assert rows[0].text.startswith("/*" + newline + " * Copies src") and rows[0].text.endswith("}" + newline)
+    assert rows[1].text.startswith("// first line" + newline + "// second line" + newline + "int (*handler")
+    # A trailing comment on the previous declaration is not this function's documentation.
+    assert rows[2].text == "static inline int twice(int x) { return 2 * x; }"
+    assert rows[3].text == "int thrice(int x) { return 3 * x; }" + newline
+    for rec in rows:
+        assert source[rec.start:rec.end] == rec.text
+
+
+MACRO_HEAVY = """#ifdef __cplusplus
+extern "C" {
+#endif
+CURL_EXTERN int declared(void) UNUSED_ATTR;
+
+int clean_before(void)
+{
+  return 0;
+}
+
+static int split_by_if(const char *ptr)
+{
+#ifdef USE_SSL
+  if(ptr) {
+#else
+  if(!ptr) {
+#endif
+    return 1;
+  }
+  return 0;
+}
+
+int type_as_macro_argument(va_list ap)
+{
+  char *text = va_arg(ap, char *);
+  return text != NULL;
+}
+
+int clean_after(void)
+{
+  return 3;
+}
+#ifdef __cplusplus
+}
+#endif
+"""
+
+
+def test_macro_heavy_c_emits_error_free_functions_and_reports_what_it_skipped(tmp_path):
+    pytest.importorskip("tree_sitter_c")
+    found, problems = parse_functions(MACRO_HEAVY, "macros.c")
+    assert [r.unit["symbol"] for r in found] == ["clean_before", "clean_after"]
+    for rec in found:
+        assert MACRO_HEAVY[rec.start:rec.end] == rec.text
+    # The unbalanced #if branches hide split_by_if from the parser; va_arg(ap, char *) is an error
+    # inside a function it still recognizes. The prototype and extern "C" guard hold no body.
+    assert problems == [(11, 21, "lines 11-21"), (23, 27, "function 'type_as_macro_argument' at line 23")]
+
+    code, out, err, fake = jgrep(["alpha", write(tmp_path, "macros.c", MACRO_HEAVY), "--functions", "-p", "0", "--json"])
+    assert code == 2 and len(fake.bodies) == 2
+    assert [json.loads(line)["unit"]["symbol"] for line in out.splitlines()] == ["clean_before", "clean_after"]
+    assert err.count("\n") == 1 and "lines 11-21, function 'type_as_macro_argument' at line 23" in err
+    assert "macro or #if" in err and "Other functions were read" in err
+
+
+def test_c_problem_report_is_one_bounded_message_per_file():
+    pytest.importorskip("tree_sitter_c")
+    source = "".join(f"int f{i}(va_list ap)\n{{\n  return va_arg(ap, char *) != 0;\n}}\n" for i in range(8))
+    *rows, message = function_records(source, "many.c")
+    assert not rows and "function 'f4' at line 17 and 3 more" in message and "f5" not in message
+
+
+def test_c_language_is_inferred_for_headers_and_required_for_other_names(tmp_path):
+    pytest.importorskip("tree_sitter_c")
+    source = "static inline int alpha(void)\n{\n  return 1;\n}\n"
+    code, out, err, _ = jgrep(["alpha", write(tmp_path, "util.h", source), "--functions", "--json"])
+    assert code == 0 and not err and json.loads(out)["unit"] == {"kind": "function", "language": "c", "symbol": "alpha"}
+    other = write(tmp_path, "util.inc", source)
+    assert jgrep(["alpha", other, "--functions"])[0] == 2
+    code, out, err, _ = jgrep(["alpha", other, "--functions", "--lang", "c", "--no-filename"])
+    assert code == 0 and not err and out.startswith("1:static inline int alpha")
+
+
+def test_recursive_functions_find_c_sources_and_headers(tmp_path):
+    pytest.importorskip("tree_sitter_c")
+    write(tmp_path, "a.c", "int alpha(void) { return 1; }\n")
+    write(tmp_path, "b.h", "static int alpha_inline(void) { return 1; }\n")
+    write(tmp_path, "notes.txt", "alpha is not code\n")
+    code, out, err, fake = jgrep(["alpha", str(tmp_path), "--functions", "-r", "--json"])
+    assert code == 0 and not err and len(fake.bodies) == 2
+    assert [json.loads(line)["unit"]["symbol"] for line in out.splitlines()] == ["alpha", "alpha_inline"]
+
+
+def test_c_functions_export_and_estimate_offline(monkeypatch, tmp_path):
+    pytest.importorskip("tree_sitter_c")
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    path = write(tmp_path, "copy.c", C_SOURCE)
+    code, out, err, fake = jgrep(["--functions", "--emit-records", path])
+    rows = [json.loads(line) for line in out.splitlines()]
+    assert code == 0 and not err and not fake.bodies and len(rows) == 6
+    assert rows[0]["id"].startswith(path + ":3-12:") and rows[0]["unit"]["language"] == "c"
+    assert C_SOURCE[rows[0]["start"]:rows[0]["end"]] == rows[0]["text"]
+    code, out, err, fake = jgrep(["alpha", path, "--functions", "--estimate", "--json"])
+    report = json.loads(out)
+    assert code == 0 and not fake.bodies and report["records"] == report["estimated_calls"] == 6
+    # Skipped C is an error in the preview as well, beside the functions that would be judged.
+    code, out, _, _ = jgrep(["alpha", write(tmp_path, "macros.c", MACRO_HEAVY), "--functions", "--estimate", "--json"])
+    report = json.loads(out)
+    assert code == 2 and report["records"] == 2 and "lines 11-21" in report["errors"][0]
+
+
+def test_c_without_the_code_extra_names_the_install_command(monkeypatch, tmp_path):
+    monkeypatch.setitem(sys.modules, "tree_sitter_c", None)
+    code, out, err, fake = jgrep(["alpha", write(tmp_path, "a.c", "int alpha(void) { return 1; }\n"), "--functions"])
+    assert code == 2 and not out and not fake.bodies and "jev-grep[code]" in err and "C functions" in err
 
 
 @pytest.mark.parametrize("name,source", [("bad.py", "def invalid(\n"), ("bad.go", "package main\nfunc f( {\n")])
