@@ -29,7 +29,7 @@ uv tool install jev-grep        # the command it installs is jgrep
 uv tool upgrade jev-grep        # upgrade an existing installation
 ```
 
-For Go function parsing, install the optional syntax parser: `uv tool install 'jev-grep[code]'`.
+For Go and C function parsing, install the optional syntax parsers: `uv tool install 'jev-grep[code]'`.
 Python function parsing and unified diffs work with the base package.
 
 jgrep needs a key for one of two APIs, or for a gateway of your own (below). With keys for
@@ -92,7 +92,7 @@ jgrep --chunks 8000 --json "describes an identification strategy" paper.txt
 | `--jsonl --field NAME`, `--csv --field NAME` | Judge one field and return the complete original record. |
 | `--chunks N`, `--overlap N` | Search full text files in overlapping passages, with source locations. |
 | `--diff` | Judge each complete unified diff hunk, including removed lines and unchanged context. |
-| `--functions`, `--lang python\|go` | Judge complete functions/methods with adjacent comments; infer language from the extension, or specify it for stdin. |
+| `--functions`, `--lang python\|go\|c` | Judge complete functions/methods with adjacent comments; infer language from the extension, or specify it for stdin. |
 | `--estimate` | Read to EOF and preview calls and approximate cost without authentication or API calls. Add `--json` for a single report. |
 | `--emit-records` | Export source-linked JSONL without judging; omit DESCRIPTION. Useful for inspection and other tools. |
 | `--max-chars N` | Maximum characters judged per ordinary record; default 8000. Truncation produces a warning. |
@@ -140,14 +140,27 @@ contains `old_file`, `new_file`, `old_start`, `old_count`, `new_start`, and `new
 file sides are null; zero-length ranges retain the unified diff's insertion/deletion anchor.
 `-c` counts matching hunks per input patch and `-l` names matching input patches.
 
-`--functions` supports Python through the standard-library AST and Go through the optional
-Tree-sitter parser. It extracts named functions and methods, retaining decorators, docstrings,
+`--functions` supports Python through the standard-library AST, and Go and C through the optional
+Tree-sitter parsers. It extracts named functions and methods, retaining decorators, docstrings,
 adjacent comments, and nested function bodies. Nested functions are not emitted again separately.
 Imports, class-level state and callers are not automatically attached. Recursive discovery skips
 other extensions unless `--lang` is explicit. Syntax errors are reported rather than guessed around.
 Function JSON includes `unit.language`, `unit.symbol`, and exact decoded-character `start`/`end`
 offsets with one-based source lines. The Python API exposes the same deterministic readers in
 `jgrep.code_inputs.function_records` and `diff_records`.
+
+C is inferred from `.c` and `.h` and is parsed as written, before preprocessing. The parser sees a
+macro as an identifier and reads every branch of an `#if`, so a function defined once per branch
+is emitted once per definition. Macro-heavy C often does not parse cleanly: an unknown attribute
+macro on a parameter, a type passed to a macro (`va_arg(ap, char *)`), or an `#if` that splits a
+statement each leave an error in the syntax tree. Refusing those files would refuse most C, so the
+rule applies per function. A function is emitted only when the parser read all of it without
+error. A function with an error inside it, or an unparsed region that could hold one, is skipped
+and named in one error per file, with exit status 2; the file's other functions are still judged.
+Errors in text with no parameter list and brace, such as a prototype carrying an unknown macro or
+an `extern "C"` guard, cannot hide a function and are not reported. A macro that expands to a whole
+definition or to braces is invisible to this reader. `.h` is read as C, so C++ and Objective-C
+headers are mostly reported as unparsed.
 
 Diffs and functions **never truncate**: units over `--max-chars` fail with their size and location.
 Raise that limit deliberately if needed. These modes cannot combine with `-C`, `--para`, `--whole`,

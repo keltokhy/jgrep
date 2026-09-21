@@ -6,10 +6,10 @@ description: Filter text, records, code functions, or complete diff hunks by a p
 # jgrep
 
 Check `command -v jgrep` and `jgrep --version`. Install with `uv tool install jev-grep`;
-Go function extraction requires `uv tool install 'jev-grep[code]'`.
+Go and C function extraction require `uv tool install 'jev-grep[code]'`.
 
 Choose the judged unit to fit the question. Lines are the default; `-C N` supplies neighboring
-records while still judging the marked record. Use `--functions` for Python/Go functions and
+records while still judging the marked record. Use `--functions` for Python/Go/C functions and
 `--diff` for changes. A diff decision compares removals, additions and unchanged context together.
 Use ordinary unified patches from `git diff --no-color`; increase `-U` for more context.
 
@@ -27,6 +27,8 @@ Filtering sends selected units to the configured TypeSafe, OpenRouter or gateway
 Credentials use provider environment variables or files under `~/.config/jev`; see the README.
 Do not print keys. The default dollar budget is $1 and caching preserves exact state/question pairs.
 
+C functions that contain a parse error, usually from a macro or `#if`, are skipped and named in an
+error (exit 2) while the file's other functions are still judged; treat that list as unreviewed code.
 Code units over `--max-chars` fail rather than truncate. Diff JSON has physical input-patch locations
 plus old/new source paths and ranges under `unit`. Function JSON has source spans and symbol names.
 `--emit-records` needs no description; its IDs carry locations through tools such as jselect.
