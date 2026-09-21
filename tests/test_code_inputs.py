@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from jgrep.code_inputs import diff_records, function_records, parse_functions
+from jgrep.code_inputs import diff_records, export_record, function_records, parse_functions
 from test_cli import env, jgrep, write
 
 
@@ -29,7 +29,7 @@ def test_deletion_only_diff_judges_whole_change_and_preserves_patch_location(tmp
     assert "Compare the before and after" in fake.bodies[0]["questions"]["d0"]["instructions"]
     assert result["text"] == REMOVAL and result["file"] == path
     assert (result["line"], result["end_line"]) == (3, 8)
-    assert result["unit"] == {"kind": "diff", "hunk": 1, "old_file": "store.go", "new_file": "store.go",
+    assert result["unit"] == {"kind": "diff", "hunk": 1, "commit": None, "old_file": "store.go", "new_file": "store.go",
                               "old_start": 10, "old_count": 5, "new_start": 10, "new_count": 2}
 
 
@@ -69,6 +69,57 @@ def test_bad_diff_is_an_error_without_model_calls(tmp_path, bad):
     path = write(tmp_path, "bad.diff", bad)
     code, out, err, fake = jgrep(["alpha", path, "--diff"])
     assert code == 2 and not out and err and not fake.bodies
+
+
+SHA_A, SHA_B, SHA_C = "a" * 40, "b" * 40, "c" * 40
+HUNK = "diff --git a/{0} b/{0}\nindex 111..222 100644\n--- a/{0}\n+++ b/{0}\n@@ -1 +1 @@\n-old\n+alpha\n"
+LOG = (f"commit {SHA_A} (HEAD -> main)\nAuthor: T <t@example.com>\nDate:   Sun Sep 20 2026\n\n"
+       "    Subject line\n    \n    - a bullet\n    + a plus\n    --- not a header\n\n" + HUNK.format("one.c") + "\n"
+       f"commit {SHA_B}\nMerge: 1111111 2222222\nAuthor: T <t@example.com>\n\n    A merge has no patch\n\n"
+       f"commit {SHA_C}\nAuthor: T <t@example.com>\n\n    Third\n\n" + HUNK.format("two.c") + HUNK.format("three.c"))
+
+
+def test_git_log_stream_gives_each_hunk_its_commit_and_input_location():
+    rows = list(diff_records(LOG, "log.patch"))
+    assert [(r.unit["commit"], r.unit["new_file"], r.unit["hunk"]) for r in rows] == [
+        (SHA_A, "one.c", 1), (SHA_C, "two.c", 1), (SHA_C, "three.c", 1)]
+    lines = LOG.split("\n")
+    for rec in rows:
+        assert lines[rec.lineno - 1] == "@@ -1 +1 @@" and lines[rec.end_line - 1] == "+alpha"
+        assert rec.text == f"--- a/{rec.unit['new_file']}\n+++ b/{rec.unit['new_file']}\n@@ -1 +1 @@\n-old\n+alpha\n"
+    ids = [export_record(r)["id"] for r in rows]
+    assert ids[0].startswith(f"log.patch:15-17:one.c@{SHA_A[:12]}:-1+1:") and len(set(ids)) == 3
+    short = list(diff_records(LOG.replace(SHA_A, SHA_A[:7]).replace(SHA_C, SHA_C[:9]), "log.patch"))
+    assert [r.unit["commit"] for r in short] == [SHA_A[:7], SHA_C[:9], SHA_C[:9]]  # git log --abbrev-commit
+
+
+def test_format_patch_stream_ignores_message_text_diffstat_and_signature():
+    def mail(sha, name, body=""):
+        return (f"From {sha} Mon Sep 17 00:00:00 2001\nFrom: T <t@example.com>\nSubject: [PATCH] change\n\n{body}"
+                f"---\n {name} | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n\n" + HUNK.format(name) + "-- \n2.50.0\n\n")
+    # An unindented message can start a line with a commit id; only mbox separators split this stream.
+    body = f"- a bullet\n+ a plus\nThis reverts\ncommit {SHA_C}\n\n"
+    rows = list(diff_records(mail(SHA_A, "one.c", body) + mail(SHA_B, "two.c"), "series.patch"))
+    assert [(r.unit["commit"], r.unit["new_file"]) for r in rows] == [(SHA_A, "one.c"), (SHA_B, "two.c")]
+
+
+def test_a_commit_that_cannot_be_read_does_not_hide_later_commits(tmp_path):
+    merge = f"commit {SHA_B}\n\n    Merge\n\ndiff --cc x.c\nindex 1,2..3\n--- a/x.c\n+++ b/x.c\n@@@ -1,1 -1,1 +1,1 @@@\n- a\n -b\n++c\n\n"
+    binary = f"commit {SHA_C}\n\n    Image\n\ndiff --git a/pic.png b/pic.png\nBinary files a/pic.png and b/pic.png differ\n"
+    stream = LOG.split(f"commit {SHA_B}")[0] + merge + binary + f"commit {SHA_C}\n\n    Last\n\n" + HUNK.format("last.c")
+    code, out, err, fake = jgrep(["alpha", write(tmp_path, "log.patch", stream), "--diff", "--json"])
+    assert code == 2 and [json.loads(line)["unit"]["new_file"] for line in out.splitlines()] == ["one.c", "last.c"]
+    assert f"log.patch:19: commit {SHA_B[:12]}: combined merge diffs are unsupported" in err
+    assert f"commit {SHA_C[:12]}: binary change 'pic.png'" in err and len(fake.bodies) == 2
+
+
+def test_patch_lines_are_counted_at_line_feeds_only():
+    # Form feeds and lone carriage returns occur inside C source lines; Git does not end a line there.
+    patch = ("--- a/x.c\n+++ b/x.c\n@@ -1,3 +1,3 @@\n \f\n-old\n+new\n keep\rcarriage\n"
+             "--- a/y.c\n+++ b/y.c\n@@ -1 +1 @@\n-a\r\n+b\r\n")
+    first, second = diff_records(patch, "patch")
+    assert (first.lineno, first.end_line, second.lineno, second.end_line) == (3, 7, 10, 12)
+    assert first.text + second.text == patch
 
 
 def test_binary_and_metadata_only_diffs_are_not_silently_clean(tmp_path):

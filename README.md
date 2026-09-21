@@ -91,7 +91,8 @@ jgrep --chunks 8000 --json "describes an identification strategy" paper.txt
 | `--json` | One JSON object per match, with the probability. |
 | `--jsonl --field NAME`, `--csv --field NAME` | Judge one field and return the complete original record. |
 | `--chunks N`, `--overlap N` | Search full text files in overlapping passages, with source locations. |
-| `--diff` | Judge each complete unified diff hunk, including removed lines and unchanged context. |
+| `--diff` | Judge each complete unified diff hunk, including removed lines and unchanged context. Reads plain patches and `git log -p` or `git format-patch` streams. |
+| `-W`, `--function-context`, `--repo DIR` | With `--diff`, also show Jev the Python/Go/C function that encloses each hunk, read at the hunk's commit or from the working tree. Still one decision per hunk, and still only the hunk is printed. |
 | `--functions`, `--lang python\|go\|c` | Judge complete functions/methods with adjacent comments; infer language from the extension, or specify it for stdin. |
 | `--estimate` | Read to EOF and preview calls and approximate cost without authentication or API calls. Add `--json` for a single report. |
 | `--emit-records` | Export source-linked JSONL without judging; omit DESCRIPTION. Useful for inspection and other tools. |
@@ -116,6 +117,10 @@ for earlier records. A slow first record therefore cannot let the rest of the in
 git diff --no-color | jgrep --diff "removes error handling for a persistent write"
 jgrep --diff "weakens cancellation handling" review.patch --json
 
+# Judge each hunk together with the function around it; print the hunk alone
+git diff --no-color | jgrep --diff -W "removes a length check before a copy"
+git log -p --no-color | jgrep --diff -W -p 0 --json "changes who frees a buffer" > scored-hunks.jsonl
+
 # Read the entire function; comments and decorators stay attached
 jgrep --functions "ignores a failed rollback" plugin/installer.go --json
 jgrep --functions "releases connections on every exit path" src/ -r --glob '*.py'
@@ -131,14 +136,78 @@ jselect "How does cancellation work?" functions.jsonl --tokens 2000
 `--diff` accepts ordinary unified patches, including Git diffs, from files or stdin. One decision
 covers a complete hunk: both removed and added lines, plus the context supplied in the patch.
 Use `git diff -U10` when you need more surrounding lines. Each emitted hunk repeats its file headers.
-It does not read the working tree or retrieve omitted context. Binary changes, metadata-only changes
-(such as mode-only edits), combined merge diffs, and malformed hunks produce errors rather than
-silently reporting no match. An empty diff contains no records.
+Unless `-W` is given, it does not read the working tree or retrieve omitted context. Binary changes,
+metadata-only changes (such as mode-only edits), combined merge diffs, and malformed hunks produce
+errors rather than silently reporting no match. An empty diff contains no records. Patch lines are
+counted at line feeds only, so a form feed or a lone carriage return inside a source line does not
+shift locations.
+
+`--diff` also reads a history: `git log -p`, `git show` and `git format-patch` output. Each commit's
+header, message and diffstat are skipped, and its hunks carry the commit id as `unit.commit`, which
+is null for a plain patch. Such a stream is read one commit at a time, so memory follows the
+largest commit, not the length of the history. Commit ids are recognized in Git's default header
+(`commit <id>`, full or abbreviated) and in mbox separators. With `--oneline` or a custom `--format`
+no id is recognized: hunks carry none, `-W` reads the working tree and reports `source_mismatch`
+where it differs, and unindented message text can be rejected as content outside a hunk. A commit
+without a patch, such as a merge, has no records. A commit whose patch cannot be read, such as a combined merge diff, is an error
+naming that commit, and later commits are still read.
 
 For diff JSON, `file`, `line`, and `end_line` locate the hunk in the **input patch**, while `unit`
-contains `old_file`, `new_file`, `old_start`, `old_count`, `new_start`, and `new_count`. Missing
-file sides are null; zero-length ranges retain the unified diff's insertion/deletion anchor.
+contains `commit`, `old_file`, `new_file`, `old_start`, `old_count`, `new_start`, and `new_count`.
+Missing file sides are null; zero-length ranges retain the unified diff's insertion/deletion anchor.
 `-c` counts matching hunks per input patch and `-l` names matching input patches.
+
+### The function around a hunk
+
+A hunk carries three unchanged lines either side of a change, which is often too little to tell
+whether a removed check mattered. `-W` (`--function-context`, named after `git diff -W`) judges each
+hunk together with the function that encloses it, as that function reads after the change. It is
+still one decision per hunk and only the hunk is printed: the contract `-C` has for lines.
+
+When a hunk carries a commit id, the new side of its file is read from that commit in `--repo DIR`
+(default: the repository of the current directory). This is the blob `git show <commit>:<path>`
+prints, fetched through one `git cat-file --batch` process. Otherwise the file is read from the
+working tree, with patch paths taken from the repository root; a path that leaves the repository
+is not read. In both cases the file must contain the hunk's new-side lines at the hunk's position,
+or it is treated as the wrong file. Functions come from the readers `--functions` uses: Python, and
+Go and C with the `[code]` extra. A function encloses the change when it contains an added line, or
+the lines on both sides of a removal. Unchanged hunk lines that reach into a neighbouring function
+do not pull it in. When a change touches several functions, the context runs from the first to the
+last of them.
+
+Context is never dropped silently. A hunk that cannot be given its function is judged alone, with
+exactly the request plain `--diff` sends, so the two share cached answers. The reason is counted:
+
+| Reason | The hunk is judged alone because |
+|---|---|
+| `deleted_file` | The file does not exist after the change. |
+| `deletion_only` | The hunk leaves no new-side lines (`+N,0`, as with `-U0`), so nothing places it in the file or confirms the file is the right one. A removal that keeps its unchanged lines, as Git writes by default, does get its function. |
+| `unsupported_language` | The extension is not `.py`, `.go`, `.c` or `.h`. |
+| `parser_unavailable` | The file is Go or C and the `[code]` extra is not installed. |
+| `source_unavailable` | The commit or path is not in `--repo`, or the working-tree file cannot be read. |
+| `source_mismatch` | The file does not contain the hunk's new-side lines at that position: another checkout, a reversed patch, or edits made since the patch was written. |
+| `syntax_error` | The file did not parse or, in C, the change lies in a function or region the parser could not read. |
+| `outside_function` | The changed lines are not inside a function. |
+| `function_in_hunk` | The hunk already contains the whole function; repeating it would only add cost. |
+
+The totals are printed to stderr whenever a hunk was judged alone or a context was shortened, and
+`--stats` adds how many records had context. Each JSON match has `unit.context`: either `symbols`,
+`language`, `line`, `end_line`, `shown_line`, `shown_end_line` and `truncated`, or
+`{"fallback": reason}`. `--estimate --json` reports the same totals under `function_context`.
+
+The hunk is the judged unit and the function is context, so sizes follow `-C`, where a line and each
+neighbour have their own limit. A hunk over `--max-chars` still fails with its size and location,
+with or without `-W`. A function over `--max-chars` is shortened, not refused: the whole lines
+nearest the change are kept up to `--max-chars`, the header above the context states which lines
+are shown, `unit.context.truncated` is true, and the run reports how many contexts were shortened.
+One request therefore holds at most `--max-chars` of hunk and `--max-chars` of context.
+`--estimate` prices that same request, and `--emit-records` adds a `context` field with the text
+the judge would see after the hunk, or null when the hunk is judged alone.
+
+`-W` requires `--diff`, so it cannot be combined with `--functions`, `-C`, `--para`, `--whole`,
+`--chunks` or structured input, and `--repo` requires `-W`. Git can widen hunks itself with
+`git log -p -W`, using line patterns rather than a parser; the widened hunk is then the judged and
+printed unit, and fails when it exceeds `--max-chars`.
 
 `--functions` supports Python through the standard-library AST, and Go and C through the optional
 Tree-sitter parsers. It extracts named functions and methods, retaining decorators, docstrings,
@@ -164,7 +233,8 @@ headers are mostly reported as unparsed.
 
 Diffs and functions **never truncate**: units over `--max-chars` fail with their size and location.
 Raise that limit deliberately if needed. These modes cannot combine with `-C`, `--para`, `--whole`,
-`--chunks`, or structured input. They read each input file into memory; keep live streams in line mode.
+`--chunks`, or structured input. A source file or a plain patch is read into memory whole, and a
+commit stream one commit at a time; keep live streams in line mode.
 
 `--emit-records` writes one object containing `schema_version`, `id`, `text`, `source`, line/span
 locations and `unit`. IDs include the source location and a text hash, so tools that select only
@@ -179,8 +249,8 @@ is safe. Results and observed failures on 20 handwritten examples are in the
 
 ## Cost preview
 
-`--estimate` uses the same input mode, selected field, context window, descriptions and model as
-the filter. It reads existing cached answers in read-only mode and estimates reuse of exact repeated
+`--estimate` uses the same input mode, selected field, context window, function context,
+descriptions and model as the filter. It reads existing cached answers in read-only mode and estimates reuse of exact repeated
 requests. It does not normalize whitespace or identifiers, create a cache, or contact the provider.
 Without a configured provider it uses TypeSafe's default model; use `--api` and `--model` to preview
 a specific setup. No API key is required.
@@ -256,7 +326,8 @@ and description. Changing gateways cannot reuse another endpoint's answers. Olde
 without provider/endpoint identity are not reused, so the first rerun may make fresh calls.
 Extra `-e` descriptions add about 27 tokens each and no time. `-C N` sends 2N+1 lines in
 place of one, so `-C 2` costs roughly three times as much per line once the fixed overhead is
-counted.
+counted. `-W` adds the enclosing function, up to `--max-chars` characters, to each hunk that has
+one; `--estimate` with the same options shows the difference before any call is made.
 
 jgrep stops at `--budget`, one dollar by default, so a stray `jgrep pattern huge.log` cannot
 run up a bill. A dollar is about 80,000 lines. A stopped run loses nothing: rerun with a higher

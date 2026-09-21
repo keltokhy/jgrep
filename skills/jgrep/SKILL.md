@@ -12,9 +12,15 @@ Choose the judged unit to fit the question. Lines are the default; `-C N` suppli
 records while still judging the marked record. Use `--functions` for Python/Go/C functions and
 `--diff` for changes. A diff decision compares removals, additions and unchanged context together.
 Use ordinary unified patches from `git diff --no-color`; increase `-U` for more context.
+`git log -p` and `git format-patch` streams work too, and each hunk then carries `unit.commit`.
+Add `-W` to judge every hunk together with its enclosing Python/Go/C function, read at the hunk's
+commit from `--repo DIR` (default: the current repository) or from the working tree. Only the hunk
+is printed. Hunks that cannot be given a function are judged alone; read the stderr totals or
+`unit.context.fallback` before comparing scores across hunks.
 
 ```bash
 git diff --no-color | jgrep --diff --estimate "removes error handling" --json
+git log -p --no-color | jgrep --diff -W -p 0 --json "removes a length check before a copy"
 jgrep --functions "ignores a failed rollback" installer.go --json
 jgrep --functions --emit-records src/ -r > functions.jsonl
 ```

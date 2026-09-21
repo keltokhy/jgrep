@@ -34,6 +34,7 @@ class Record:
     end: int | None = None
     end_line: int | None = None
     unit: dict | None = None
+    context: str | None = None
 
 
 def discover(files: list[str], args) -> tuple[list[str], list[str]]:
@@ -224,7 +225,7 @@ def chunks(f, label: str, size: int, overlap: int, stop: threading.Event):
 def plain_records(f, label: str, args, stop: threading.Event):
     if args.diff or args.functions:
         from .code_inputs import code_records
-        yield from code_records(f.read(), label, args, stop)
+        yield from code_records(f, label, args, stop)
         return
     if args.whole:
         # One extra character makes truncation detectable without reading the entire file.
