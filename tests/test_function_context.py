@@ -315,3 +315,117 @@ def test_oversized_function_is_shortened_around_the_change_but_a_hunk_never_is(t
 def test_function_context_option_errors_never_call_provider(flags, message):
     code, out, err, fake = jgrep([*flags, "alpha"])
     assert code == 2 and message in err and not out and not fake.bodies
+
+
+REVIEW = pytest.mark.xfail(strict=True, reason="reproduces a PR 6 review finding; fixed in the following commits")
+
+
+SECRET = 'def load():\n    path = "config"\n    token = "SECRET-DO-NOT-LEAK-123"\n    return path, token\n'
+# A plain patch whose new-side lines an attacker can guess; it never mentions the token line.
+GUESS = "--- a/{0}\n+++ b/{0}\n@@ -1,2 +1,2 @@\n def load():\n-    path = None\n+    path = \"config\"\n"
+
+
+def leaks(tmp_path, repo_dir, patch_text):
+    """Run the export and the filter; return (exit code, stderr, every byte that would leave the machine)."""
+    patch = write(tmp_path, "guess.diff", patch_text)
+    _, out, _, _ = jgrep(["--diff", "-W", "--repo", str(repo_dir), "--emit-records", patch])
+    code, _, err, fake = jgrep(["alpha", patch, "--diff", "-W", "--repo", str(repo_dir), "--no-cache"])
+    return code, err, out + json.dumps(fake.bodies)
+
+
+@REVIEW
+def test_core_worktree_cannot_move_the_boundary_outside_the_repository(tmp_path, repo):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secrets.py").write_text(SECRET)
+    git(repo, "config", "core.worktree", str(outside))
+    code, err, sent = leaks(tmp_path, repo, GUESS.format("secrets.py"))
+    assert "SECRET" not in sent
+    # Refused loudly, before any hunk is read or judged: Git's work tree is not the directory holding .git.
+    assert code == 2 and "core.worktree" in err and str(outside.resolve()) in err and not json.loads("[" + sent.split("[", 1)[1])
+    # A parent directory as work tree passes an "is an ancestor" test but is just as wrong.
+    git(repo, "config", "core.worktree", str(tmp_path))
+    (tmp_path / "secrets.py").write_text(SECRET)
+    code, err, sent = leaks(tmp_path, repo, GUESS.format("secrets.py"))
+    assert code == 2 and "SECRET" not in sent and "core.worktree" in err
+
+
+@pytest.mark.parametrize("name", ["link.py", "../outside/secrets.py", "{outside}/secrets.py", "sub/../../outside/secrets.py"])
+def test_patch_paths_and_symlinks_cannot_reach_outside_the_repository(tmp_path, repo, name):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secrets.py").write_text(SECRET)
+    (repo / "sub").mkdir()
+    (repo / "link.py").symlink_to(outside / "secrets.py")
+    name = name.format(outside=outside)
+    patch = GUESS.format(name) if not name.startswith("/") else GUESS.format("x.py").replace("+++ b/x.py", "+++ " + name)
+    code, err, sent = leaks(tmp_path, repo, patch)
+    assert "SECRET" not in sent and "1 judged alone (1 source_unavailable)" in err
+
+
+@pytest.mark.skip(reason="reproduces a hang: open() blocks on a named pipe; fixed in the following commits")
+def test_named_pipe_in_the_repository_does_not_hang_the_reader(tmp_path, repo):
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("no named pipes on this platform")
+    os.mkfifo(repo / "pipe.py")
+    code, err, sent = leaks(tmp_path, repo, GUESS.format("pipe.py"))
+    assert "1 judged alone (1 source_unavailable)" in err
+
+
+@REVIEW
+def test_missing_objects_never_contact_a_promisor_remote(tmp_path, repo):
+    commit(repo, "start", {"copy.py": PYTHON})
+    marker = tmp_path / "EXECUTED"
+    # An untrusted repository can declare a promisor remote whose transport runs a command.
+    for key, value in (("extensions.partialClone", "origin"), ("remote.origin.promisor", "true"),
+                       ("remote.origin.url", f"ext::sh -c touch% {marker}"), ("protocol.ext.allow", "always")):
+        git(repo, "config", key, value)
+    stream = f"commit {'a' * 40}\nAuthor: T <t@example.com>\n\n    Names an object this repository lacks\n\n" + GUESS.format("copy.py")
+    code, err, sent = leaks(tmp_path, repo, stream)
+    assert not marker.exists() and "1 judged alone (1 source_unavailable)" in err
+
+
+def test_linked_worktrees_and_subdirectories_are_ordinary_repositories(tmp_path, repo):
+    commit(repo, "start", {"pkg/copy.py": PYTHON})
+    linked = tmp_path / "linked"
+    git(repo, "worktree", "add", "-q", str(linked))
+    assert (linked / ".git").is_file()  # a gitfile, not a directory
+    for root, given in ((linked, linked), (repo, repo / "pkg")):
+        (root / "pkg" / "copy.py").write_text(PYTHON.replace(PYTHON_CHECK, ""))
+        patch = write(tmp_path, "change.diff", git(root, "diff"))
+        code, out, err, _ = jgrep(["--diff", "-W", "--repo", str(given), "--emit-records", patch])
+        assert code == 0 and not err and rows(out)[0]["unit"]["context"]["symbols"] == ["second"]
+
+
+@REVIEW
+def test_oversized_source_is_a_counted_fallback_before_it_is_read_or_parsed(tmp_path, repo, monkeypatch):
+    from jgrep import diff_context
+    monkeypatch.setattr(diff_context, "MAX_SOURCE_BYTES", len(PYTHON) - 1, raising=False)
+    sha = commit(repo, "start", {"copy.py": PYTHON})
+    commit(repo, "remove check", {"copy.py": PYTHON.replace(PYTHON_CHECK, "")})
+    monkeypatch.setattr(diff_context.FunctionContext, "_parse", lambda *a: pytest.fail("parsed an oversized source"), raising=False)
+    # From a commit: the blob's size is known from the batch header, and later reads stay in step.
+    log = write(tmp_path, "log.patch", git(repo, "log", "-p"))
+    code, out, err, _ = jgrep(["--diff", "-W", "--repo", str(repo), "--emit-records", log])
+    assert [r["unit"]["context"] for r in rows(out)] == [{"fallback": "function_in_hunk"}, {"fallback": "source_too_large"}][::-1] \
+        or [r["unit"]["context"].get("fallback") for r in rows(out)] == ["function_in_hunk", "source_too_large"][::-1]
+    # From the working tree: the size is checked before the file is opened.
+    (repo / "copy.py").write_text(PYTHON)
+    patch = write(tmp_path, "tree.diff", git(repo, "diff"))
+    code, out, err, _ = jgrep(["alpha", patch, "--diff", "-W", "--repo", str(repo), "--json", "-p", "0"])
+    assert rows(out)[0]["unit"]["context"] == {"fallback": "source_too_large"} and "1 source_too_large" in err
+    assert "source_too_large" in FALLBACKS and sha
+
+
+@REVIEW
+def test_context_header_and_body_share_the_limit(tmp_path, repo):
+    body = "".join(f"    step_{i} = {i}\n" for i in range(200))
+    source = "def long(value):\n" + body + "    return value\n"
+    commit(repo, "add long", {"long.py": source})
+    (repo / "long.py").write_text(source.replace("step_120 = 120", "step_120 = alpha(120)"))
+    patch = write(tmp_path, "long.diff", git(repo, "diff"))
+    for limit in (600, 1000):
+        code, out, err, fake = jgrep(["alpha", patch, "--diff", "-W", "--repo", str(repo), "--json", "--max-chars", str(limit), "--no-cache"])
+        hunk = rows(out)[0]["text"]
+        state = fake.bodies[0]["state"]
+        assert state.startswith(hunk) and len(state) - len(hunk) <= limit and "step_120 = alpha(120)" in state[len(hunk):]

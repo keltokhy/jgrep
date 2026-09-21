@@ -410,3 +410,72 @@ def test_whole_file_export_is_not_cut_at_the_judgment_limit(tmp_path):
 def test_invalid_combinations_never_call_provider(flags):
     code, out, err, fake = jgrep([*flags, "alpha"])
     assert code == 2 and err and not fake.bodies
+
+
+REVIEW = pytest.mark.xfail(strict=True, reason="reproduces a PR 6 review finding; fixed in the following commits")
+
+
+def mail(sha, name, body="", signature="2.50.0\n"):
+    return (f"From {sha} Mon Sep 17 00:00:00 2001\nFrom: T <t@example.com>\nSubject: [PATCH] change\n\n{body}"
+            f"---\n {name} | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n\n" + HUNK.format(name) + "-- \n" + signature + "\n")
+
+
+@REVIEW
+def test_format_patch_message_and_signature_are_not_patch_content():
+    # The message quotes a diff header at column zero and has its own "---" rule; format.signature
+    # starts with a dash. Neither is part of the patch that follows the real separator.
+    body = "Reverts the change below.\n\n---\ndiff --git a/quoted.c b/quoted.c\n--- a/quoted.c\n+ not a hunk\n\n"
+    stream = mail(SHA_A, "one.c", body, signature="- signed with a dash\n+ and a plus\n trailing\n") + mail(SHA_B, "two.c")
+    rows = list(diff_records(stream, "series.patch"))
+    assert [(r.unit["commit"], r.unit["new_file"]) if not isinstance(r, str) else r for r in rows] == [
+        (SHA_A, "one.c"), (SHA_B, "two.c")]
+    lines = stream.split("\n")
+    assert all(lines[r.lineno - 1] == "@@ -1 +1 @@" for r in rows)
+    # Inside a hunk, "-- " is a removed line whose text is "- ", not a signature delimiter.
+    dashes = mail(SHA_A, "list.md").replace("@@ -1 +1 @@\n-old\n+alpha\n", "@@ -1,2 +1 @@\n-- \n-old\n+alpha\n")
+    rec, = diff_records(dashes, "series.patch")
+    assert "\n-- \n-old\n+alpha\n" in rec.text and rec.unit["old_count"] == 2
+
+
+@REVIEW
+@pytest.mark.parametrize("bad", ['"a/bad\\x"', '"a/\\377.c"', '"a/unterminated'])
+def test_malformed_quoted_path_fails_its_commit_only(bad):
+    broken = HUNK.format("one.c").replace("--- a/one.c", "--- " + bad)
+    stream = (f"commit {SHA_A}\nAuthor: T <t@example.com>\n\n    Bad path\n\n" + broken + "\n"
+              f"commit {SHA_B}\nAuthor: T <t@example.com>\n\n    Good\n\n" + HUNK.format("two.c"))
+    first, second = diff_records(stream, "log.patch")
+    assert isinstance(first, str) and f"commit {SHA_A[:12]}" in first and "path" in first
+    assert second.unit["new_file"] == "two.c" and second.unit["commit"] == SHA_B
+    # In a plain patch the same path is one reported error, as other malformed patches are.
+    with pytest.raises(ValueError, match="path"):
+        list(diff_records(broken, "plain.patch"))
+
+
+@pytest.mark.parametrize("length", [pytest.param(4, marks=REVIEW), pytest.param(5, marks=REVIEW), pytest.param(6, marks=REVIEW), 7, 12])
+def test_short_commit_abbreviations_are_headers_only_above_a_git_log_field(length):
+    stream = LOG.replace(SHA_A, SHA_A[:length]).replace(SHA_C, SHA_C[:length])
+    assert [r.unit["commit"] for r in diff_records(stream, "log.patch")] == [SHA_A[:length]] + [SHA_C[:length]] * 2
+    # "added", "decade" and "faced" are hexadecimal words. Unindented text before a patch is not a header.
+    for word in ("added", "decade", "faced", "beef"):
+        rec, = diff_records(f"commit {word}\nremoved the check\n\n" + HUNK.format("one.c"), "mail.patch")
+        assert rec.unit["commit"] is None
+
+
+@REVIEW
+def test_skipped_c_is_reported_even_when_the_first_match_ends_the_run(tmp_path):
+    pytest.importorskip("tree_sitter_c")
+    clean = "".join(f"int alpha_{i}(void)\n{{\n  return {i};\n}}\n" for i in range(40))
+    source = clean + "int skipped(va_list ap)\n{\n  char *text = va_arg(ap, char *);\n  return text != 0;\n}\n"
+    path = write(tmp_path, "many.c", source)
+    for flags in (["-m", "1"], ["-q"], ["-l"]):
+        code, out, err, fake = jgrep(["alpha", path, "--functions", "-j", "2", *flags])
+        assert code == (0 if flags == ["-q"] else 2) and "function 'skipped' at line 161" in err, flags
+    first, *_ = function_records(source, "many.c")
+    assert isinstance(first, str) and "skipped" in first
+
+
+@REVIEW
+def test_python_source_with_a_byte_order_mark_is_not_a_syntax_error():
+    source = "﻿# alpha\ndef first():\n    return 1\n"
+    rec, = function_records(source, "bom.py")
+    assert rec.unit["symbol"] == "first" and source[rec.start:rec.end] == rec.text == source
