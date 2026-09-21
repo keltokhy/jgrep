@@ -236,8 +236,8 @@ def test_every_fallback_is_counted_and_the_hunk_is_still_judged(tmp_path, repo):
     (repo / "copy.py").write_text(PYTHON.replace(PYTHON_CHECK, ""))
     fallbacks, err = only(git(repo, "diff", "-U0", "--", "copy.py"), "--repo", str(repo))
     assert fallbacks == ["deletion_only"] and "1 judged alone (1 deletion_only)" in err
-    assert set(expected.values()) | {"source_mismatch", "source_unavailable", "deletion_only", "parser_unavailable"} \
-        == set(FALLBACKS) | {None}
+    assert set(expected.values()) | {"source_mismatch", "source_unavailable", "deletion_only",
+                                     "parser_unavailable", "source_too_large"} == set(FALLBACKS) | {None}
 
 
 def test_c_context_needs_the_parser_and_an_error_free_function(tmp_path, repo, monkeypatch):
@@ -317,9 +317,6 @@ def test_function_context_option_errors_never_call_provider(flags, message):
     assert code == 2 and message in err and not out and not fake.bodies
 
 
-REVIEW = pytest.mark.xfail(strict=True, reason="reproduces a PR 6 review finding; fixed in the following commits")
-
-
 SECRET = 'def load():\n    path = "config"\n    token = "SECRET-DO-NOT-LEAK-123"\n    return path, token\n'
 # A plain patch whose new-side lines an attacker can guess; it never mentions the token line.
 GUESS = "--- a/{0}\n+++ b/{0}\n@@ -1,2 +1,2 @@\n def load():\n-    path = None\n+    path = \"config\"\n"
@@ -333,7 +330,6 @@ def leaks(tmp_path, repo_dir, patch_text):
     return code, err, out + json.dumps(fake.bodies)
 
 
-@REVIEW
 def test_core_worktree_cannot_move_the_boundary_outside_the_repository(tmp_path, repo):
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -363,7 +359,6 @@ def test_patch_paths_and_symlinks_cannot_reach_outside_the_repository(tmp_path, 
     assert "SECRET" not in sent and "1 judged alone (1 source_unavailable)" in err
 
 
-@pytest.mark.skip(reason="reproduces a hang: open() blocks on a named pipe; fixed in the following commits")
 def test_named_pipe_in_the_repository_does_not_hang_the_reader(tmp_path, repo):
     if not hasattr(os, "mkfifo"):
         pytest.skip("no named pipes on this platform")
@@ -372,7 +367,6 @@ def test_named_pipe_in_the_repository_does_not_hang_the_reader(tmp_path, repo):
     assert "1 judged alone (1 source_unavailable)" in err
 
 
-@REVIEW
 def test_missing_objects_never_contact_a_promisor_remote(tmp_path, repo):
     commit(repo, "start", {"copy.py": PYTHON})
     marker = tmp_path / "EXECUTED"
@@ -380,9 +374,11 @@ def test_missing_objects_never_contact_a_promisor_remote(tmp_path, repo):
     for key, value in (("extensions.partialClone", "origin"), ("remote.origin.promisor", "true"),
                        ("remote.origin.url", f"ext::sh -c touch% {marker}"), ("protocol.ext.allow", "always")):
         git(repo, "config", key, value)
-    stream = f"commit {'a' * 40}\nAuthor: T <t@example.com>\n\n    Names an object this repository lacks\n\n" + GUESS.format("copy.py")
+    diff = "diff --git a/copy.py b/copy.py\nindex 111..222 100644\n" + GUESS.format("copy.py")
+    stream = f"commit {'a' * 40}\nAuthor: T <t@example.com>\n\n    Names an object this repository lacks\n\n" + diff
     code, err, sent = leaks(tmp_path, repo, stream)
-    assert not marker.exists() and "1 judged alone (1 source_unavailable)" in err
+    # The object is missing, cat-file reports it without a lazy fetch, and the ext transport never runs.
+    assert not marker.exists() and "1 judged alone (1 source_unavailable)" in err and "SECRET" not in sent
 
 
 def test_linked_worktrees_and_subdirectories_are_ordinary_repositories(tmp_path, repo):
@@ -397,35 +393,52 @@ def test_linked_worktrees_and_subdirectories_are_ordinary_repositories(tmp_path,
         assert code == 0 and not err and rows(out)[0]["unit"]["context"]["symbols"] == ["second"]
 
 
-@REVIEW
 def test_oversized_source_is_a_counted_fallback_before_it_is_read_or_parsed(tmp_path, repo, monkeypatch):
     from jgrep import diff_context
-    monkeypatch.setattr(diff_context, "MAX_SOURCE_BYTES", len(PYTHON) - 1, raising=False)
-    sha = commit(repo, "start", {"copy.py": PYTHON})
-    commit(repo, "remove check", {"copy.py": PYTHON.replace(PYTHON_CHECK, "")})
-    monkeypatch.setattr(diff_context.FunctionContext, "_parse", lambda *a: pytest.fail("parsed an oversized source"), raising=False)
-    # From a commit: the blob's size is known from the batch header, and later reads stay in step.
-    log = write(tmp_path, "log.patch", git(repo, "log", "-p"))
-    code, out, err, _ = jgrep(["--diff", "-W", "--repo", str(repo), "--emit-records", log])
-    assert [r["unit"]["context"] for r in rows(out)] == [{"fallback": "function_in_hunk"}, {"fallback": "source_too_large"}][::-1] \
-        or [r["unit"]["context"].get("fallback") for r in rows(out)] == ["function_in_hunk", "source_too_large"][::-1]
-    # From the working tree: the size is checked before the file is opened.
-    (repo / "copy.py").write_text(PYTHON)
+    parsed = []
+    real = diff_context.FunctionContext._parse
+    monkeypatch.setattr(diff_context.FunctionContext, "_parse",
+                        lambda self, text, path, lang: (parsed.append(path), real(self, text, path, lang))[1])
+    # A ceiling between the two files: one is read and parsed, the larger one never is.
+    monkeypatch.setattr(diff_context, "MAX_SOURCE_BYTES", len(PYTHON) + 100)
+    big = "# padding line\n" * 50 + PYTHON
+    commit(repo, "start", {"copy.py": PYTHON, "big.py": big})
+    (repo / "copy.py").write_text(PYTHON.replace(PYTHON_CHECK, ""))
+    (repo / "big.py").write_text(big.replace(PYTHON_CHECK, ""))
     patch = write(tmp_path, "tree.diff", git(repo, "diff"))
+
+    # Working tree: size is checked from stat, before the file is opened.
     code, out, err, _ = jgrep(["alpha", patch, "--diff", "-W", "--repo", str(repo), "--json", "-p", "0"])
-    assert rows(out)[0]["unit"]["context"] == {"fallback": "source_too_large"} and "1 source_too_large" in err
-    assert "source_too_large" in FALLBACKS and sha
+    found = {r["unit"]["new_file"]: r["unit"]["context"].get("fallback") for r in rows(out)}
+    assert found == {"big.py": "source_too_large", "copy.py": None} and "1 source_too_large" in err
+    assert "big.py" not in parsed and "source_too_large" in FALLBACKS
+
+    # Commit stream: size comes from the batch header, and the pipe stays aligned for the next blob.
+    parsed.clear()
+    log = write(tmp_path, "log.patch", git(repo, "log", "-p", "--reverse"))
+    code, out, err, _ = jgrep(["--diff", "-W", "--repo", str(repo), "--emit-records", log])
+    created = [r for r in rows(out) if r["unit"]["old_file"] is None]  # the commit that added each file
+    assert {r["unit"]["new_file"]: r["unit"]["context"].get("fallback") for r in created} == {
+        "big.py": "source_too_large", "copy.py": "function_in_hunk"}
+    assert "big.py" not in parsed
 
 
-@REVIEW
 def test_context_header_and_body_share_the_limit(tmp_path, repo):
     body = "".join(f"    step_{i} = {i}\n" for i in range(200))
     source = "def long(value):\n" + body + "    return value\n"
     commit(repo, "add long", {"long.py": source})
     (repo / "long.py").write_text(source.replace("step_120 = 120", "step_120 = alpha(120)"))
     patch = write(tmp_path, "long.diff", git(repo, "diff"))
-    for limit in (600, 1000):
-        code, out, err, fake = jgrep(["alpha", patch, "--diff", "-W", "--repo", str(repo), "--json", "--max-chars", str(limit), "--no-cache"])
-        hunk = rows(out)[0]["text"]
+    for limit in (400, 600, 1000):
+        code, out, err, fake = jgrep(["alpha", patch, "--diff", "-W", "--repo", str(repo),
+                                      "--json", "--max-chars", str(limit), "--no-cache"])
+        row = rows(out)[0]
         state = fake.bodies[0]["state"]
-        assert state.startswith(hunk) and len(state) - len(hunk) <= limit and "step_120 = alpha(120)" in state[len(hunk):]
+        assert state.startswith(row["text"] + "\n")
+        context = state[len(row["text"]) + 1:]  # the enclosing function, after the hunk and the join
+        # The whole context, header included, is held to --max-chars, and --estimate prices the same.
+        assert len(context) <= limit and "step_120 = alpha(120)" in context
+        assert row["unit"]["context"]["truncated"] is True
+        report = json.loads(jgrep(["alpha", patch, "--diff", "-W", "--repo", str(repo),
+                                   "--estimate", "--json", "--max-chars", str(limit)])[1])
+        assert report["function_context"]["truncated_contexts"] == 1

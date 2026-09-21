@@ -16,7 +16,9 @@ Use ordinary unified patches from `git diff --no-color`; increase `-U` for more 
 Add `-W` to judge every hunk together with its enclosing Python/Go/C function, read at the hunk's
 commit from `--repo DIR` (default: the current repository) or from the working tree. Only the hunk
 is printed. Hunks that cannot be given a function are judged alone; read the stderr totals or
-`unit.context.fallback` before comparing scores across hunks.
+`unit.context.fallback` before comparing scores across hunks. `-W` reads files the patch names and
+sends the enclosing function to the API, so point `--repo` at a repository you trust; it refuses
+paths outside the repository and a work tree that Git config points elsewhere.
 
 ```bash
 git diff --no-color | jgrep --diff --estimate "removes error handling" --json

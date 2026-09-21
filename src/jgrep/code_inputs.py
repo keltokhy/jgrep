@@ -27,13 +27,18 @@ def git_path(value: str) -> str | None:
     if value == "/dev/null":
         return None
     if value.startswith('"') and value.endswith('"'):
-        # Git quotes non-ASCII bytes as octal escapes, unlike JSON.
-        value = ast.literal_eval("b" + value).decode("utf-8")
+        try:
+            # Git quotes non-ASCII bytes as octal escapes, unlike JSON.
+            value = ast.literal_eval("b" + value).decode("utf-8")
+        except (ValueError, SyntaxError, UnicodeError) as e:
+            raise ValueError(f"malformed quoted path {value}: {e}") from e
     return value[2:] if value.startswith(("a/", "b/")) else value
 
 
 # Default `git log -p` / `git show` headers, and the mbox separator written by `git format-patch`.
-_LOG_COMMIT = re.compile(r"commit ([0-9a-f]{7,64})(?: \(.*\))?$")  # --abbrev-commit shortens the id
+# Git abbreviates ids to as few as four hex digits (--abbrev=4); in `git log -p` a message that
+# might also read as a header is indented, so a header only matches at column zero.
+_LOG_COMMIT = re.compile(r"commit ([0-9a-f]{4,64})(?: \(.*\))?$")
 _MBOX_COMMIT = re.compile(r"From ([0-9a-f]{40}|[0-9a-f]{64}) \w{3} \w{3} [ \d]\d \d\d:\d\d:\d\d \d{4}$")
 
 
@@ -54,26 +59,27 @@ def _lf_lines(source):
 
 
 def _commit_segments(lines):
-    """Split a patch stream at commit headers: (commit id or None, first line number, lines).
+    """Split a patch stream at commit headers: (commit id or None, first line number, lines, mbox).
 
     A hunk line starts with a space, sign or backslash, so a header at column 0 cannot be patch
     content. Unindented mbox messages can mention a commit, so the first header seen fixes which
-    of the two formats separates this stream.
+    of the two formats separates this stream, and whether messages and signatures must be trimmed.
     """
-    patterns = (_LOG_COMMIT, _MBOX_COMMIT)
-    commit, first, block = None, 1, []
+    patterns = ((_LOG_COMMIT, False), (_MBOX_COMMIT, True))
+    commit, first, block, mbox = None, 1, [], False
     for number, line in enumerate(lines, 1):
         if line.startswith(("commit ", "From ")):
-            for pattern in patterns:
+            for pattern, is_mbox in patterns:
                 match = pattern.match(line.rstrip("\r\n"))
                 if match:
                     if block:
-                        yield commit, first, block
-                    patterns, commit, first, block = (pattern,), match.group(1), number, []
+                        yield commit, first, block, mbox
+                    patterns = ((pattern, is_mbox),)
+                    commit, first, block, mbox = match.group(1), number, [], is_mbox
                     break
         block.append(line)
     if block:
-        yield commit, first, block
+        yield commit, first, block, mbox
 
 
 def diff_records(source, label: str):
@@ -82,19 +88,22 @@ def diff_records(source, label: str):
     `source` is patch text or a text file. `git log -p` and `git format-patch` streams are read one
     commit at a time, and each hunk carries its commit id. Line numbers locate hunks in the input.
     """
-    for commit, first, lines in _commit_segments(_lf_lines(source)):
+    for commit, first, lines, mbox in _commit_segments(_lf_lines(source)):
         if commit is None:
             yield from _patch_records(lines, first - 1, label, None)
             continue
-        # The header, message and diffstat are not patch content; a merge may have no patch at all.
-        body = next((i for i, line in enumerate(lines) if line.startswith("diff --")), len(lines))
+        # A mail's message can itself contain "diff --git", so the patch begins after the last "---"
+        # separator, which Git writes between the message and the diffstat. `git log -p` indents its
+        # message, so there the first column-zero "diff --" is the patch. A merge may have no patch.
+        start = max((i + 1 for i, line in enumerate(lines) if mbox and line.rstrip("\r\n") == "---"), default=0)
+        body = next((i for i in range(start, len(lines)) if lines[i].startswith("diff --")), len(lines))
         try:
-            yield from _patch_records(lines[body:], first - 1 + body, label, commit)
-        except ValueError as e:
+            yield from _patch_records(lines[body:], first - 1 + body, label, commit, signature=mbox)
+        except (ValueError, SyntaxError, UnicodeError) as e:  # a bad path or hunk fails its commit only
             yield f"{label}:{first}: commit {commit[:12]}: {e}"  # later commits are still read
 
 
-def _patch_records(lines: list[str], offset: int, label: str, commit: str | None):
+def _patch_records(lines: list[str], offset: int, label: str, commit: str | None, signature: bool = False):
     text = "".join(lines)
     if not text.strip():
         return
@@ -120,6 +129,9 @@ def _patch_records(lines: list[str], offset: int, label: str, commit: str | None
     for number, line in enumerate(lines, 1):
         if number in covered or line.startswith("\\ No newline at end of file"):
             continue
+        # A mail ends with git's "-- " signature delimiter; the version line below it is not a hunk.
+        if signature and line.rstrip("\r\n") in ("-- ", "--"):
+            break
         if line.startswith("--- "):
             old_headers += 1
         elif line.startswith("+++ "):
@@ -158,7 +170,9 @@ def _patch_records(lines: list[str], offset: int, label: str, commit: str | None
 def _python_spans(text: str):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", SyntaxWarning)  # the source is data; its warnings are not jgrep's
-        tree = ast.parse(text)
+        # A leading byte-order mark is not a statement; dropping it for the parse keeps line numbers,
+        # since the mark sits on line one and columns are unused for Python spans.
+        tree = ast.parse(text[1:] if text.startswith("﻿") else text)
 
     def visit(node, scope=""):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -317,12 +331,14 @@ def parse_functions(text: str, label: str, language: str | None = None):
 
 def function_records(text: str, label: str, language: str | None = None):
     found, problems = parse_functions(text, label, language)
-    yield from found
+    # Report skipped C before its file's functions: a match limit, quiet mode or a budget stop can
+    # end the run once a function is emitted, and unreviewed code must not be lost with it.
     if problems:
         named = ", ".join(p[2] for p in problems[:MAX_PROBLEMS_NAMED])
         more = f" and {len(problems) - MAX_PROBLEMS_NAMED} more" if len(problems) > MAX_PROBLEMS_NAMED else ""
         yield (f"{label}: skipped C that Tree-sitter could not parse, usually around a macro or #if: "
                f"{named}{more}. Other functions were read")
+    yield from found
 
 
 def code_records(source, label: str, args, stop):

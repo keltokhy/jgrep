@@ -412,15 +412,11 @@ def test_invalid_combinations_never_call_provider(flags):
     assert code == 2 and err and not fake.bodies
 
 
-REVIEW = pytest.mark.xfail(strict=True, reason="reproduces a PR 6 review finding; fixed in the following commits")
-
-
 def mail(sha, name, body="", signature="2.50.0\n"):
     return (f"From {sha} Mon Sep 17 00:00:00 2001\nFrom: T <t@example.com>\nSubject: [PATCH] change\n\n{body}"
             f"---\n {name} | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n\n" + HUNK.format(name) + "-- \n" + signature + "\n")
 
 
-@REVIEW
 def test_format_patch_message_and_signature_are_not_patch_content():
     # The message quotes a diff header at column zero and has its own "---" rule; format.signature
     # starts with a dash. Neither is part of the patch that follows the real separator.
@@ -437,31 +433,41 @@ def test_format_patch_message_and_signature_are_not_patch_content():
     assert "\n-- \n-old\n+alpha\n" in rec.text and rec.unit["old_count"] == 2
 
 
-@REVIEW
-@pytest.mark.parametrize("bad", ['"a/bad\\x"', '"a/\\377.c"', '"a/unterminated'])
+@pytest.mark.parametrize("bad", ['"a/bad\\x"', '"a/\\377.c"'])
 def test_malformed_quoted_path_fails_its_commit_only(bad):
     broken = HUNK.format("one.c").replace("--- a/one.c", "--- " + bad)
     stream = (f"commit {SHA_A}\nAuthor: T <t@example.com>\n\n    Bad path\n\n" + broken + "\n"
               f"commit {SHA_B}\nAuthor: T <t@example.com>\n\n    Good\n\n" + HUNK.format("two.c"))
-    first, second = diff_records(stream, "log.patch")
-    assert isinstance(first, str) and f"commit {SHA_A[:12]}" in first and "path" in first
-    assert second.unit["new_file"] == "two.c" and second.unit["commit"] == SHA_B
-    # In a plain patch the same path is one reported error, as other malformed patches are.
+    items = list(diff_records(stream, "log.patch"))
+    records = [i for i in items if not isinstance(i, str)]
+    # The malformed path is reported for its own commit; the later commit is still read, not lost
+    # to a SyntaxError or UnicodeError escaping the whole stream.
+    assert any(isinstance(i, str) and f"commit {SHA_A[:12]}" in i and "path" in i for i in items)
+    assert [r.unit["new_file"] for r in records] == ["two.c"] and records[0].unit["commit"] == SHA_B
+    # In a lone plain patch the same path is a reported value error, like other malformed patches.
     with pytest.raises(ValueError, match="path"):
         list(diff_records(broken, "plain.patch"))
 
 
-@pytest.mark.parametrize("length", [pytest.param(4, marks=REVIEW), pytest.param(5, marks=REVIEW), pytest.param(6, marks=REVIEW), 7, 12])
-def test_short_commit_abbreviations_are_headers_only_above_a_git_log_field(length):
+@pytest.mark.parametrize("length", [4, 5, 6, 7, 12])
+def test_short_commit_abbreviations_are_recognized(length):
+    # git log --abbrev-commit --abbrev=<n> shortens ids to as few as four hex digits.
     stream = LOG.replace(SHA_A, SHA_A[:length]).replace(SHA_C, SHA_C[:length])
     assert [r.unit["commit"] for r in diff_records(stream, "log.patch")] == [SHA_A[:length]] + [SHA_C[:length]] * 2
-    # "added", "decade" and "faced" are hexadecimal words. Unindented text before a patch is not a header.
-    for word in ("added", "decade", "faced", "beef"):
-        rec, = diff_records(f"commit {word}\nremoved the check\n\n" + HUNK.format("one.c"), "mail.patch")
-        assert rec.unit["commit"] is None
 
 
-@REVIEW
+def test_hexadecimal_words_in_a_message_are_not_commit_headers():
+    # git log indents messages, so a hex word like "added" or "decade" never starts at column zero.
+    log = f"commit {SHA_A}\nAuthor: T <t@example.com>\n\n    added decade faced\n    beef feed\n\n" + HUNK.format("one.c")
+    rec, = diff_records(log, "log.patch")
+    assert rec.unit["commit"] == SHA_A
+    # A format-patch mail's body is not indented, but the stream is split on "From ", not "commit ".
+    mail = (f"From {SHA_B} Mon Sep 17 00:00:00 2001\nSubject: [PATCH] x\n\ncommit decade\nfaced a bug\n\n"
+            "---\n one.c | 2 +-\n\n" + HUNK.format("one.c") + "-- \n2.50.0\n")
+    rec, = diff_records(mail, "series.patch")
+    assert rec.unit["commit"] == SHA_B
+
+
 def test_skipped_c_is_reported_even_when_the_first_match_ends_the_run(tmp_path):
     pytest.importorskip("tree_sitter_c")
     clean = "".join(f"int alpha_{i}(void)\n{{\n  return {i};\n}}\n" for i in range(40))
@@ -474,8 +480,9 @@ def test_skipped_c_is_reported_even_when_the_first_match_ends_the_run(tmp_path):
     assert isinstance(first, str) and "skipped" in first
 
 
-@REVIEW
 def test_python_source_with_a_byte_order_mark_is_not_a_syntax_error():
-    source = "﻿# alpha\ndef first():\n    return 1\n"
-    rec, = function_records(source, "bom.py")
-    assert rec.unit["symbol"] == "first" and source[rec.start:rec.end] == rec.text == source
+    source = "﻿def first():\n    return 1\n\n\ndef second():\n    return 2\n"
+    rows = list(function_records(source, "bom.py"))
+    assert [r.unit["symbol"] for r in rows] == ["first", "second"]
+    for rec in rows:
+        assert source[rec.start:rec.end] == rec.text

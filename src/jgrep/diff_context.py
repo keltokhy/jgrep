@@ -3,10 +3,23 @@
 from __future__ import annotations
 
 import bisect
+import os
+import stat
 import subprocess
 from pathlib import Path
 
 from .inputs import FUNCTION_LANGUAGES, Record
+
+# A source file read for context is bounded so a patch cannot direct jgrep at a huge blob.
+MAX_SOURCE_BYTES = 10 * 1024 * 1024
+
+# A patch is untrusted input, so every Git call runs with a fixed argument list (never a shell) and
+# an environment that keeps a hostile repository from reaching the network or replacing objects.
+# GIT_NO_LAZY_FETCH stops cat-file from contacting a partial clone's promisor remote for an object a
+# patch named; the rest disable object replacement, prompts, and background lock/monitor processes.
+GIT_ENV = {**os.environ, "GIT_NO_LAZY_FETCH": "1", "GIT_NO_REPLACE_OBJECTS": "1",
+           "GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0", "GIT_ALLOW_PROTOCOL": "file"}
+GIT_FLAGS = ["-c", "core.fsmonitor=false", "-c", "protocol.ext.allow=never"]
 
 # Why a hunk is judged alone. Under --function-context every hunk gets a context or one of these.
 FALLBACKS = {
@@ -15,11 +28,16 @@ FALLBACKS = {
     "unsupported_language": "no function reader for this file extension",
     "parser_unavailable": "the language needs the code extra: uv tool install --reinstall 'jev-grep[code]'",
     "source_unavailable": "the new-side file could not be read from the commit or working tree",
+    "source_too_large": f"the new-side file is larger than {MAX_SOURCE_BYTES // (1024 * 1024)} MiB",
     "source_mismatch": "the file that was read does not contain the hunk's new-side lines at that place",
     "syntax_error": "the file, or the code around the change, did not parse",
     "outside_function": "the changed lines are not inside a function",
     "function_in_hunk": "the hunk already contains the whole function",
 }
+
+
+class RepositoryError(ValueError):
+    """The repository cannot be trusted to answer -W safely; the whole run stops."""
 
 
 class FunctionContext:
@@ -29,7 +47,7 @@ class FunctionContext:
         from . import code_inputs  # imported here so line mode never loads the diff and syntax parsers
         self.code, self.repo, self.max_chars = code_inputs, repo or ".", max_chars
         self._objects = None  # one `git cat-file --batch` for the run; a process per file is slow
-        self._root = None
+        self._root = False  # the working-tree root, computed once; None once known to be absent
         self._loaded = (None, None)  # the hunks of one file arrive together
 
     def close(self) -> None:
@@ -48,49 +66,110 @@ class FunctionContext:
         else:
             rec.context, rec.unit["context"] = found
 
-    def _blob(self, commit: str, path: str) -> str | None:
-        """What `git show <commit>:<path>` prints, or None when Git has no such file."""
-        if "\n" in path:
+    def _git(self, *args: str) -> str | None:
+        try:
+            done = subprocess.run(["git", "-C", self.repo, *GIT_FLAGS, *args],
+                                  capture_output=True, text=True, env=GIT_ENV)
+        except OSError:
             return None
+        return done.stdout if done.returncode == 0 else None
+
+    def _read_exact(self, count: int) -> bytes:
+        parts = []
+        while count > 0:
+            chunk = self._objects.stdout.read(count)
+            if not chunk:
+                break
+            parts.append(chunk)
+            count -= len(chunk)
+        return b"".join(parts)
+
+    def _drain(self, count: int) -> None:
+        """Discard a blob's bytes in bounded pieces so the batch pipe stays in step without loading it."""
+        while count > 0:
+            chunk = self._objects.stdout.read(min(count, 1 << 20))
+            if not chunk:
+                break
+            count -= len(chunk)
+
+    def _blob(self, commit: str, path: str) -> tuple[str | None, str | None]:
+        """The bytes `git show <commit>:<path>` prints as text, or (None, reason) when there is none."""
+        if "\n" in path:
+            return None, "source_unavailable"
         try:
             if self._objects is None:
-                self._objects = subprocess.Popen(["git", "-C", self.repo, "cat-file", "--batch"],
+                self._objects = subprocess.Popen(["git", "-C", self.repo, *GIT_FLAGS, "cat-file", "--batch"],
                                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                                 stderr=subprocess.DEVNULL)
+                                                 stderr=subprocess.DEVNULL, env=GIT_ENV)
             self._objects.stdin.write(f"{commit}:{path}\n".encode("utf-8"))
             self._objects.stdin.flush()
             header = self._objects.stdout.readline().split()
             if len(header) != 3 or not header[2].isdigit():
-                return None  # "<name> missing", or Git cannot run in this directory
-            data = self._objects.stdout.read(int(header[2]) + 1)[:int(header[2])]
-            return data.decode("utf-8", errors="replace") if header[1] == b"blob" else None
+                return None, "source_unavailable"  # "<name> missing", or Git cannot run in this directory
+            size = int(header[2])
+            if header[1] != b"blob" or size > MAX_SOURCE_BYTES:
+                self._drain(size + 1)  # keep the pipe aligned for the next object, but do not hold it
+                return None, "source_too_large" if header[1] == b"blob" else "source_unavailable"
+            data = self._read_exact(size)
+            self._objects.stdout.read(1)  # the trailing newline the batch format adds after content
+            return data.decode("utf-8", errors="replace"), None
         except OSError:
-            return None
+            return None, "source_unavailable"
 
-    def _worktree(self, path: str) -> str | None:
-        if self._root is None:
-            try:
-                top = subprocess.run(["git", "-C", self.repo, "rev-parse", "--show-toplevel"],
-                                     capture_output=True, text=True).stdout.strip()
-            except OSError:
-                top = ""
-            self._root = Path(top or self.repo).resolve()  # patch paths are relative to the repository root
+    def _worktree_root(self) -> Path | None:
+        """The directory holding --repo's own .git, refusing a work tree that Git points elsewhere.
+
+        The allowed root is found by walking up to the `.git` entry, without trusting repository
+        config: a hostile repository can set core.worktree outside itself, and `git rev-parse
+        --show-toplevel` would then report that outside directory as the tree. Any such disagreement
+        stops the run rather than reading files the repository does not actually contain.
+        """
+        if self._root is not False:
+            return self._root
+        base = Path(self.repo).resolve()
+        root = next((d for d in (base, *base.parents) if (d / ".git").exists()), None)
+        if root is not None:
+            top = self._git("rev-parse", "--show-toplevel")
+            if top and top.strip():
+                reported = Path(top.strip()).resolve()
+                if reported != root:
+                    raise RepositoryError(
+                        f"-W will not read this work tree: Git reports it as {reported}, outside the "
+                        f"repository at {root} (core.worktree or GIT_WORK_TREE points elsewhere). "
+                        "Point --repo at a repository you trust")
+        self._root = root
+        return root
+
+    def _worktree(self, path: str) -> tuple[str | None, str | None]:
+        root = self._worktree_root()  # raises RepositoryError when the work tree is outside the repository
+        if root is None:
+            return None, "source_unavailable"
         try:
-            target = (self._root / path).resolve()
-            # A patch is untrusted input; it must not pull files outside the tree into a request.
-            if not target.is_relative_to(self._root):
-                return None
-            with open(target, "r", encoding="utf-8", errors="replace", newline="") as f:
-                return f.read()
+            target = (root / path).resolve()  # resolves every symlink, so a link cannot point out of the tree
+            if not target.is_relative_to(root):
+                return None, "source_unavailable"
+            st = target.stat()
         except (OSError, ValueError):
-            return None
+            return None, "source_unavailable"
+        if not stat.S_ISREG(st.st_mode):  # a directory, device, or named pipe whose open() could block
+            return None, "source_unavailable"
+        if st.st_size > MAX_SOURCE_BYTES:
+            return None, "source_too_large"
+        try:
+            with open(target, "r", encoding="utf-8", errors="replace", newline="") as f:
+                return f.read(), None
+        except OSError:
+            return None, "source_unavailable"
+
+    def _parse(self, text: str, path: str, language: str):
+        return self.code.parse_functions(text, path, language)
 
     def _load(self, commit: str | None, path: str, language: str):
-        text = self._blob(commit, path) if commit else self._worktree(path)
+        text, reason = self._blob(commit, path) if commit else self._worktree(path)
         if text is None:
-            return "source_unavailable"
+            return reason
         try:
-            functions, problems = self.code.parse_functions(text, path, language)
+            functions, problems = self._parse(text, path, language)
         except self.code.ParserUnavailable:
             return "parser_unavailable"
         except (ValueError, SyntaxError, RecursionError):
@@ -150,37 +229,46 @@ class FunctionContext:
         if new_start <= first and last < new_start + unit["new_count"]:
             return "function_in_hunk"
 
-        low, high = first, last
-        if sum(len(line) for line in lines[first - 1:last]) > self.max_chars:
-            # The function is context, not the judged unit, so it may be shortened: keep whole
-            # lines nearest the change, as -C keeps the lines nearest a record.
-            changed = added + removed_before
-            low = high = min(max(min(changed), first), last)
-            reach = min(max(changed), last)
-            used = len(lines[low - 1])
-            while high < reach and used + len(lines[high]) <= self.max_chars:
+        noun = "function" if len(enclosing) == 1 else "functions"
+        prefix = f"Enclosing {noun} after this change ({path} lines {first}-{last}"
+        full = "".join(lines[first - 1:last])
+        whole_header = prefix + "), shown only as context:\n"
+        if len(whole_header) + len(full) <= self.max_chars:
+            text = whole_header + full
+            low, high, truncated = first, last, False
+        else:
+            # The function is context, not the judged unit, so it may be shortened to fit --max-chars,
+            # header included: keep the whole lines nearest the change, as -C keeps a record's neighbours.
+            # Reserve room using the widest possible "showing" clause so the final line never overruns.
+            reserved = len(prefix + f", showing lines {first}-{last} nearest the change), shown only as context:\n")
+            low, high, body = self._shorten(lines, first, last, added + removed_before, max(0, self.max_chars - reserved))
+            shown = "" if (low, high) == (first, last) else f", showing lines {low}-{high} nearest the change"
+            text = prefix + shown + "), shown only as context:\n" + body
+            truncated = True
+        return text, {
+            "symbols": [symbol for _, _, symbol in enclosing], "language": language,
+            "line": first, "end_line": last, "shown_line": low, "shown_end_line": high, "truncated": truncated}
+
+    def _shorten(self, lines, first, last, changed, budget):
+        """Whole lines around the change, then the join, holding the body to `budget` characters."""
+        low = high = min(max(min(changed), first), last)
+        reach = min(max(changed), last)
+        used = len(lines[low - 1])
+        while high < reach and used + len(lines[high]) <= budget:
+            used += len(lines[high])
+            high += 1
+        grew = True
+        while grew:
+            grew = False
+            if low > first and used + len(lines[low - 2]) <= budget:
+                used += len(lines[low - 2])
+                low -= 1
+                grew = True
+            if high < last and used + len(lines[high]) <= budget:
                 used += len(lines[high])
                 high += 1
-            grew = True
-            while grew:
-                grew = False
-                if low > first and used + len(lines[low - 2]) <= self.max_chars:
-                    used += len(lines[low - 2])
-                    low -= 1
-                    grew = True
-                if high < last and used + len(lines[high]) <= self.max_chars:
-                    used += len(lines[high])
-                    high += 1
-                    grew = True
-        body = "".join(lines[low - 1:high])
-        shown = "" if (low, high) == (first, last) else f", showing lines {low}-{high} nearest the change"
-        noun = "function" if len(enclosing) == 1 else "functions"
-        header = f"Enclosing {noun} after this change ({path} lines {first}-{last}{shown}), shown only as context:\n"
-        # The final cut only matters when a single line is longer than the limit.
-        return header + body[:self.max_chars], {
-            "symbols": [symbol for _, _, symbol in enclosing], "language": language,
-            "line": first, "end_line": last, "shown_line": low, "shown_end_line": high,
-            "truncated": (low, high) != (first, last) or len(body) > self.max_chars}
+                grew = True
+        return low, high, "".join(lines[low - 1:high])[:budget]  # the slice only bites a single over-long line
 
 
 def tally(counts: dict, rec: Record) -> None:
