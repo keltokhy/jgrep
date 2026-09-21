@@ -8,6 +8,7 @@ import os
 import sqlite3
 
 from .core import BACKENDS, PRICE_PER_MTOK, Cache, cache_path
+from .diff_context import describe, summary, tally
 
 
 def preview_backend(args):
@@ -21,13 +22,14 @@ def preview_backend(args):
     return backend, args.model or os.environ.get("JEV_MODEL") or backend.model
 
 
-def estimate(stream, args, questions, make_state):
+def estimate(stream, args, questions, make_state, function_questions=None):
     backend, model = preview_backend(args)
     url = backend.endpoint()
     if not math.isfinite(PRICE_PER_MTOK) or PRICE_PER_MTOK < 0:
         raise ValueError("JEV_PRICE_PER_MTOK must be finite and nonnegative")
     path = cache_path()
     cache = None
+    contexts = {}
     seen = sqlite3.connect("")  # temporary disk database, bounded Python memory
     seen.execute("CREATE TABLE seen (key TEXT PRIMARY KEY) WITHOUT ROWID")
     result = {"schema_version": 1, "operation": "estimate", "api": backend.name, "model": model,
@@ -48,6 +50,7 @@ def estimate(stream, args, questions, make_state):
                 result["errors"].append(rec)
                 continue
             result["records"] += 1
+            tally(contexts, rec)
             if not rec.text.strip():
                 result["blank_records"] += 1
                 continue
@@ -57,7 +60,9 @@ def estimate(stream, args, questions, make_state):
             state = make_state(rec, args)
             missing = {}
             fresh = {}
-            for qid, q in questions.items():
+            # The enclosing function is part of the request, so it is part of the price.
+            asked = function_questions[bool(rec.unit["commit"])] if rec.context else questions
+            for qid, q in asked.items():
                 key = Cache.key(model, state, q, api=backend.name, url=url)
                 row = cache.execute("SELECT answer FROM answers WHERE key=?", (key,)).fetchone() if cache else None
                 if row:
@@ -83,6 +88,9 @@ def estimate(stream, args, questions, make_state):
             size = len(payload.encode("utf-8"))
             result["estimated_input_tokens"] += math.ceil(size / 4) + 270
             result["input_bytes_plus_overhead"] += size + 1024
+        if args.function_context:
+            result["function_context"] = summary(contexts)
+            result["notes"].append(f"The estimate includes {describe(contexts, always=True)}.")
         result["estimated_cost_usd"] = result["estimated_input_tokens"] * PRICE_PER_MTOK / 1e6
         result["byte_estimate_cost_usd"] = result["input_bytes_plus_overhead"] * PRICE_PER_MTOK / 1e6
         result["budget_usd"] = args.budget or None

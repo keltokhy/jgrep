@@ -13,6 +13,8 @@ from pathlib import Path
 from pathspec import GitIgnoreSpec
 
 STDIN = "(standard input)"
+# Extensions --functions can infer. Recursive searches skip other files unless --lang is given.
+FUNCTION_LANGUAGES = {".py": "python", ".go": "go", ".c": "c", ".h": "c"}
 
 
 @dataclass
@@ -32,6 +34,7 @@ class Record:
     end: int | None = None
     end_line: int | None = None
     unit: dict | None = None
+    context: str | None = None
 
 
 def discover(files: list[str], args) -> tuple[list[str], list[str]]:
@@ -222,7 +225,7 @@ def chunks(f, label: str, size: int, overlap: int, stop: threading.Event):
 def plain_records(f, label: str, args, stop: threading.Event):
     if args.diff or args.functions:
         from .code_inputs import code_records
-        yield from code_records(f.read(), label, args, stop)
+        yield from code_records(f, label, args, stop)
         return
     if args.whole:
         # One extra character makes truncation detectable without reading the entire file.
@@ -262,7 +265,7 @@ def records(files: list[str], args, stop: threading.Event):
             with f:
                 if args.recursive and name != "-" and b"\0" in f.buffer.peek(8192)[:8192]:
                     continue  # binary files discovered during a directory search
-                if args.functions and args.recursive and not args.lang and Path(name).suffix not in {".py", ".go"}:
+                if args.functions and args.recursive and not args.lang and Path(name).suffix not in FUNCTION_LANGUAGES:
                     continue
                 if args.jsonl:
                     stream = json_records(f, label, args.field, stop)
