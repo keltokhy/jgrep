@@ -6,25 +6,16 @@ import json
 import math
 import sqlite3
 
-from jevkit_runtime import AnswerStore, Backend, Settings, answer_key
+from jevkit_runtime import AnswerStore, Settings, answer_keys, resolve
 
 from .core import PROVIDERS
 from .diff_context import describe, summary, tally
 
 
 def preview_backend(args):
+    """The backend a run would use, without needing its key: a preview costs nothing."""
     settings = Settings.from_env()
-    name = args.api or settings.api
-    if name is None:
-        name = next((provider.name for provider in PROVIDERS.values()
-                     if settings.environ.get(provider.key_env) or provider.key_file(settings).is_file()),
-                    "typesafe")
-    if name not in PROVIDERS:
-        raise ValueError(f"unknown API {name!r}")
-    provider = PROVIDERS[name]
-    model = args.model or settings.model or provider.model
-    backend = Backend(provider.name, provider.endpoint(settings) or "", model, price_per_mtok=settings.price_per_mtok)
-    return backend, settings
+    return resolve(PROVIDERS, args.api, model=args.model, require_key=False, settings=settings), settings
 
 
 def estimate(stream, args, questions, make_state, function_questions=None):
@@ -65,18 +56,24 @@ def estimate(stream, args, questions, make_state, function_questions=None):
             fresh = {}
             # The enclosing function is part of the request, so it is part of the price.
             asked = function_questions[bool(rec.unit["commit"])] if rec.context else questions
-            for qid, q in asked.items():
-                key = answer_key(backend, state, q)
+            keys = answer_keys(backend, state, asked)
+            hits = set()
+            for qid, key in keys.items():
                 row = cache.execute("SELECT answer FROM answers WHERE key=?", (key,)).fetchone() if cache else None
                 if row:
                     try:
                         p = json.loads(row[0])["noul"]
                         if not isinstance(p, bool) and isinstance(p, (int, float)) and math.isfinite(p) and 0 <= p <= 1:
-                            continue
+                            hits.add(qid)
                     except (ValueError, KeyError, TypeError):
                         pass
+            if backend.joint_reads and len(hits) != len(asked):
+                hits.clear()  # a joint read is replayed whole when any slot is missing
+            for qid, q in asked.items():
+                if qid in hits:
+                    continue
                 missing[qid] = q
-                inserted = seen.execute("INSERT OR IGNORE INTO seen VALUES (?)", (key,)).rowcount
+                inserted = seen.execute("INSERT OR IGNORE INTO seen VALUES (?)", (keys[qid],)).rowcount
                 if args.no_cache or inserted:
                     fresh[qid] = q
             if not missing:

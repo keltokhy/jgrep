@@ -56,6 +56,16 @@ Requests are sent as they would be to TypeSafe, so the gateway sees the same `{m
 questions}` body. Ask for a model the gateway knows with `--model`; the default is `jev-latest`.
 `--stats` prices gateway calls at TypeSafe's list price, which may not be what the gateway bills.
 
+### Local servers (experimental)
+
+`--api diffusiongemma` and `--api laya` send the same requests to a System One server on your own
+machine, an [OpenJev](https://github.com/razorback16/openjev) or
+[laya-mlx](https://github.com/mizorewww/laya-mlx) process that you run separately. They are never
+chosen automatically, need no key, and count as $0 in `--stats` and `--estimate` unless
+`JEV_PRICE_PER_MTOK` is set. The runtime's [DiffusionGemma](https://github.com/keltokhy/jevkit-core/blob/main/docs/diffusiongemma.md)
+and [Laya](https://github.com/keltokhy/jevkit-core/blob/main/docs/laya.md) guides explain the setup;
+start with `-j 1` and a long `--timeout` while a local model warms up.
+
 ## Use
 
 ```bash
@@ -472,7 +482,7 @@ unaffected by this source migration.
 
 From the core checkout, `python scripts/dev.py setup`, `check`, and `wheel-check`
 set up and validate all five consumers in separate environments.
-CI checks out core tag `v0.2.0`. Prompts, question construction, and budget policies
+CI checks out core tag `v0.3.0`. Prompts, question construction, and budget policies
 remain in this repository; answer identity, the answer store, transport, and metering
 are the runtime's. Runtime 0.2 keys and stores answers differently from 0.1, so a cache
 written by an earlier version is re-asked once after upgrading.
