@@ -8,11 +8,11 @@ import threading
 
 import httpx
 import pytest
-from jevkit_core import answer_key
+from jevkit_runtime import AnswerStore, Backend, Client, answer_key
 
 from jgrep.cli import main
 from jgrep import cli as cli_module
-from jgrep.core import PROVIDERS, Backend, Cache, Jev
+from jgrep.core import PROVIDERS
 
 WORDS = ["alpha", "beta", "gamma"]
 
@@ -429,7 +429,7 @@ def test_malformed_answer_reports_error_and_preserves_later_matches(tmp_path, an
     assert code == 2
     assert out == "alpha later\n"
     assert f"{f}:1:" in err and "answer" in err
-    cache = Cache()
+    cache = AnswerStore()
     backend = Backend("openrouter", PROVIDERS["openrouter"].url, "~typesafe/jev-latest")
     key = answer_key(backend, "bad answer", cli_module.question("alpha"))
     assert cache.get(key) is None
@@ -437,7 +437,7 @@ def test_malformed_answer_reports_error_and_preserves_later_matches(tmp_path, an
 
 
 def test_malformed_cached_answer_does_not_block_later_matches(tmp_path):
-    cache = Cache()
+    cache = AnswerStore()
     backend = Backend("openrouter", PROVIDERS["openrouter"].url, "~typesafe/jev-latest")
     key = answer_key(backend, "bad answer", cli_module.question("alpha"))
     cache.put(key, {})
@@ -449,14 +449,14 @@ def test_malformed_cached_answer_does_not_block_later_matches(tmp_path):
 
 
 def test_unexpected_judge_exception_is_reported(monkeypatch, tmp_path):
-    original = Jev.ask
+    original = Client.ask
 
     async def broken(self, state, questions):
         if state == "bad answer":
             raise RuntimeError("unexpected client failure")
         return await original(self, state, questions)
 
-    monkeypatch.setattr(Jev, "ask", broken)
+    monkeypatch.setattr(Client, "ask", broken)
     f = write(tmp_path, "a.txt", "bad answer\nalpha later\n")
     code, out, err, _ = jgrep(["alpha", f])
     assert code == 2 and out == "alpha later\n"
@@ -531,9 +531,9 @@ def test_max_count_zero_prints_zero_for_each_file(tmp_path):
 
 @pytest.mark.parametrize("flag,value", [("-j", "0"), ("-j", "-1"), ("-m", "-1")])
 def test_invalid_concurrency_and_match_limits_fail_before_setup(monkeypatch, flag, value):
-    def no_backend(*args):
+    def no_backend(*_, **__):
         pytest.fail("invalid limits must fail before creating a client")
 
-    monkeypatch.setattr(cli_module, "resolve_backend", no_backend)
+    monkeypatch.setattr(cli_module, "resolve", no_backend)
     code, _, err, fake = jgrep(["alpha", flag, value])
     assert code == 2 and flag in err and not fake.bodies

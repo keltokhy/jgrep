@@ -5,18 +5,18 @@ import json
 import pytest
 
 from jgrep import cli
-from jgrep.core import Cache
+from jevkit_runtime import AnswerStore
 from test_cli import env, jgrep, write
 from test_code_inputs import REMOVAL
 
 
 def test_estimate_without_credentials_never_creates_client_or_cache(monkeypatch, tmp_path):
     monkeypatch.delenv("OPENROUTER_API_KEY")
-    monkeypatch.setattr(cli, "resolve_backend", lambda *_: (_ for _ in ()).throw(AssertionError("auth lookup")))
+    monkeypatch.setattr(cli, "resolve", lambda *_, **__: (_ for _ in ()).throw(AssertionError("auth lookup")))
     path = write(tmp_path, "data.txt", "alpha\nalpha\n\nother\n")
     code, out, err, fake = jgrep(["alpha", path, "--estimate", "--json"])
     result = json.loads(out)
-    assert code == 0 and not err and not fake.bodies and not Cache.default_path().exists()
+    assert code == 0 and not err and not fake.bodies and not AnswerStore.default_path().exists()
     assert result["records"] == 4 and result["blank_records"] == 1
     assert result["estimated_calls"] == 2 and result["duplicate_records"] == 1
     assert result["call_upper_bound"] == 3
@@ -26,14 +26,14 @@ def test_estimate_without_credentials_never_creates_client_or_cache(monkeypatch,
 def test_estimate_uses_existing_cache_read_only_and_no_cache_flag(tmp_path):
     path = write(tmp_path, "data.txt", "alpha\nother\n")
     assert jgrep(["alpha", path])[0] == 0
-    guard = Cache()
+    guard = AnswerStore()
     guard.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    before = Cache.default_path().read_bytes()
+    before = AnswerStore.default_path().read_bytes()
     code, out, _, fake = jgrep(["alpha", path, "--estimate", "--json"])
     result = json.loads(out)
     assert code == 0 and not fake.bodies and result["cached_records"] == 2
     assert result["estimated_calls"] == 0 and result["estimated_cost_usd"] == 0
-    assert Cache.default_path().read_bytes() == before
+    assert AnswerStore.default_path().read_bytes() == before
     guard.close()
     result = json.loads(jgrep(["alpha", path, "--estimate", "--json", "--no-cache"])[1])
     assert result["estimated_calls"] == 2 and result["cached_records"] == 0

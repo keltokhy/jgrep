@@ -24,7 +24,8 @@ from concurrent.futures import CancelledError
 from dataclasses import replace
 
 from . import __version__
-from .core import PROVIDERS, Cache, Jev, JevError, JevFatal, Settings, resolve_backend
+from jevkit_runtime import AnswerStore, Client, JevError, JevFatal, Settings, resolve
+from .core import PROVIDERS
 from .diff_context import describe, tally
 from .inputs import STDIN, Record, discover, records
 
@@ -207,7 +208,7 @@ def render(rec: Record, p: float, ps: list[float], args, show_file: bool) -> str
     return body + ("\n" if args.para and not (args.whole or args.files_with_matches) else "")
 
 
-async def run(args, descriptions: list[str], files: list[str], jev: Jev, out, err) -> int:
+async def run(args, descriptions: list[str], files: list[str], jev: Client, out, err) -> int:
     preserve_records = (args.csv or args.jsonl) and not args.count
     show_file = not args.no_filename and (args.with_filename or
                 (not preserve_records and (len(files) > 1 or args.recursive or args.chunks or args.functions)))
@@ -242,7 +243,7 @@ def print_counts(args, files: list[str], counts: dict[int, int], out, show_file:
         out.flush()
 
 
-async def scan(args, descriptions: list[str], files: list[str], jev: Jev, out, err, show_file: bool) -> dict:
+async def scan(args, descriptions: list[str], files: list[str], jev: Client, out, err, show_file: bool) -> dict:
     loop = asyncio.get_running_loop()
     questions, function_questions = ask(descriptions, args)
     queue: asyncio.Queue = asyncio.Queue(maxsize=args.concurrency)
@@ -489,13 +490,13 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
     if not files:
         return 2 if discovery_errors else 1
     try:
-        backend = resolve_backend(args.api, model=args.model)
+        backend = resolve(PROVIDERS, args.api, model=args.model)
     except JevFatal as e:
         print(f"jgrep: {e}", file=err)
         return 2
 
-    jev = Jev(backend, timeout=args.timeout, concurrency=args.concurrency,
-              store=None if args.no_cache else Cache(), transport=transport)
+    jev = Client(backend, timeout=args.timeout, concurrency=args.concurrency,
+              store=None if args.no_cache else AnswerStore(), transport=transport)
     t0 = time.perf_counter()
     try:
         code = asyncio.run(run(args, descriptions, files, jev, out, err))

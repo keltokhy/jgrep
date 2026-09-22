@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 from jgrep import cli, inputs
-from jgrep.core import Backend, Jev
+from jevkit_runtime import Backend, Client
 from test_cli import Fake, env, jgrep, write
 
 
@@ -21,10 +21,10 @@ from test_cli import Fake, env, jgrep, write
     ("--max-chars", "0"), ("--max-chars", "-1"), ("--chunks", "0"), ("--chunks", "-1"),
 ])
 def test_numeric_validation_precedes_client_setup(monkeypatch, flag, value):
-    def no_backend(*args):
+    def no_backend(*_, **__):
         pytest.fail("invalid options must not create a client")
 
-    monkeypatch.setattr(cli, "resolve_backend", no_backend)
+    monkeypatch.setattr(cli, "resolve", no_backend)
     code, out, err, fake = jgrep(["alpha", f"{flag}={value}"])
     assert code == 2 and flag in err and not out and not fake.bodies
 
@@ -66,7 +66,7 @@ def test_unexpected_reader_failure_always_signals_eof(monkeypatch):
         args = cli.parser().parse_args(["--budget", "0"])
         out, err = io.StringIO(), io.StringIO()
         backend = Backend("openrouter", "https://fixture.invalid", "v1", key="test")
-        jev = Jev(backend, transport=httpx.MockTransport(Fake()))
+        jev = Client(backend, transport=httpx.MockTransport(Fake()))
         code = await asyncio.wait_for(cli.run(args, ["alpha"], ["broken.txt"], jev, out, err), timeout=1)
         assert code == 2 and out.getvalue() == "alpha before error\n"
         assert "reader exploded" in err.getvalue()

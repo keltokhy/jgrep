@@ -6,9 +6,9 @@ import json
 import math
 import sqlite3
 
-from jevkit_core import answer_key
+from jevkit_runtime import AnswerStore, Backend, Settings, answer_key
 
-from .core import PROVIDERS, Backend, Cache, Settings
+from .core import PROVIDERS
 from .diff_context import describe, summary, tally
 
 
@@ -23,15 +23,14 @@ def preview_backend(args):
         raise ValueError(f"unknown API {name!r}")
     provider = PROVIDERS[name]
     model = args.model or settings.model or provider.model
-    price = settings.price_per_mtok if provider.price_per_mtok is None else provider.price_per_mtok
-    backend = Backend(provider.name, provider.endpoint(settings) or "", model, price_per_mtok=price)
+    backend = Backend(provider.name, provider.endpoint(settings) or "", model, price_per_mtok=settings.price_per_mtok)
     return backend, settings
 
 
 def estimate(stream, args, questions, make_state, function_questions=None):
     backend, settings = preview_backend(args)
     price_per_mtok = backend.price_per_mtok
-    path = Cache.default_path(settings)
+    path = AnswerStore.default_path(settings)
     cache = None
     contexts = {}
     seen = sqlite3.connect("")  # temporary disk database, bounded Python memory

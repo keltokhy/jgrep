@@ -15,4 +15,4 @@ directory, place its `src/` before the current `tests/` on `sys.path` in a fresh
 and call `capture(temp_directory, name)` for each entry in `CASES`. This uses the same fake
 transport helper against the reference package, without switching the checkout or fetching Git
 objects. Compare the request bodies and wire hashes to this file. The answer keys are then derived
-from those frozen bodies with `jevkit_core.answer_key`; they intentionally changed in runtime 0.2.
+from those frozen bodies with `jevkit_runtime.answer_key`; they intentionally changed in runtime 0.2.

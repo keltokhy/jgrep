@@ -6,7 +6,7 @@ import json
 import httpx
 import pytest
 
-from jgrep.core import Backend, Cache, Jev, JevError
+from jevkit_runtime import AnswerStore, Backend, Client, JevError
 
 
 @pytest.fixture(autouse=True)
@@ -40,7 +40,7 @@ def test_total_deadline_includes_drip_fed_body_and_retries(retry):
 
         backend = Backend("local", "https://fixture.invalid", "test", key="test-key")
         timeout = 0.5 if retry else 0.15
-        jev = Jev(backend, timeout=timeout, transport=httpx.MockTransport(handle))
+        jev = Client(backend, timeout=timeout, transport=httpx.MockTransport(handle))
         try:
             with pytest.raises(JevError, match="gave up after"):
                 await jev.ask("alpha", {"d0": {"type": "noul", "instructions": "alpha"}})
@@ -56,7 +56,7 @@ def test_total_deadline_includes_drip_fed_body_and_retries(retry):
 @pytest.mark.parametrize("answers", [None, [], {"d0": {"noul": 0.9}, "d1": {}}])
 def test_invalid_answers_are_not_partially_cached(tmp_path, answers):
     async def exercise():
-        cache = Cache(tmp_path / "answers.sqlite")
+        cache = AnswerStore(tmp_path / "answers.sqlite")
         calls = []
 
         def respond(request):
@@ -65,7 +65,7 @@ def test_invalid_answers_are_not_partially_cached(tmp_path, answers):
 
         transport = httpx.MockTransport(respond)
         backend = Backend("openrouter", "https://fixture.invalid", "v1", key="test-key")
-        jev = Jev(backend, store=cache, transport=transport)
+        jev = Client(backend, store=cache, transport=transport)
         questions = {"d0": {"type": "noul", "instructions": "alpha"},
                      "d1": {"type": "noul", "instructions": "beta"}}
         try:
@@ -82,7 +82,7 @@ def test_invalid_answers_are_not_partially_cached(tmp_path, answers):
 
 def test_cache_separates_endpoints_and_providers_but_reuses_same_origin(tmp_path):
     async def exercise():
-        cache = Cache(tmp_path / "answers.sqlite")
+        cache = AnswerStore(tmp_path / "answers.sqlite")
         calls = []
         questions = {"d0": {"type": "noul", "instructions": "alpha"}}
         origins = [("gateway", "https://first.invalid", 0.9),
@@ -96,7 +96,7 @@ def test_cache_separates_endpoints_and_providers_but_reuses_same_origin(tmp_path
                     return httpx.Response(200, json={"answers": {"d0": {"noul": expected}}})
 
                 backend = Backend(api, url, "same-model", key="test-key")
-                jev = Jev(backend, store=cache, transport=httpx.MockTransport(respond))
+                jev = Client(backend, store=cache, transport=httpx.MockTransport(respond))
                 try:
                     assert (await jev.ask("text", questions))["d0"]["noul"] == expected
                 finally:

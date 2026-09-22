@@ -5,9 +5,9 @@ import json
 from pathlib import Path
 
 import pytest
-from jevkit_core import answer_key
+from jevkit_runtime import Backend, answer_key
 
-from jgrep.core import PROVIDERS, Backend
+from jgrep.core import PROVIDERS
 from test_cli import Fake, env, jgrep, write
 
 
