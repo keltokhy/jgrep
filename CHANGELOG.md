@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
+- Move transport, configuration, the answer cache and metering to the shared `jevkit-runtime` 0.2.
+  Answers are keyed by provider, endpoint and model and stored with who answered them; the cache
+  written by earlier versions is reset on first use and re-asked. A 200 response without answers is
+  an error rather than a retry, and a stored answer that fails validation is an error rather than a hit.
 - Label context without a commit id as the function in the working tree, including in the judge's
   question. Only the hunk's new-side lines at their given position are checked; surrounding code
   may have changed. Plain diff and fallback requests retain their existing questions and cache keys.

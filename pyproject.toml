@@ -1,6 +1,6 @@
 [project]
 name = "jev-grep"
-version = "0.2.1"
+version = "0.3.0"
 description = "grep by meaning: filter lines with a plain-English description, judged by TypeSafe's Jev model"
 readme = "README.md"
 license = "MIT"
