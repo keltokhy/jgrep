@@ -107,6 +107,7 @@ version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
+    { name = "jevkit-runtime" },
     { name = "pathspec" },
     { name = "unidiff" },
 ]
@@ -126,6 +127,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
+    { name = "jevkit-runtime", editable = "../jevkit-core" },
     { name = "pathspec", specifier = ">=0.12" },
     { name = "tree-sitter", marker = "extra == 'code'", specifier = ">=0.25,<0.26" },
     { name = "tree-sitter-c", marker = "extra == 'code'", specifier = ">=0.24,<0.25" },
@@ -136,6 +138,27 @@ provides-extras = ["code"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8" }]
+
+[[package]]
+name = "jevkit-runtime"
+version = "0.1.0"
+source = { editable = "../jevkit-core" }
+dependencies = [
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "httpx", extras = ["http2"], marker = "extra == 'http2'", specifier = ">=0.27" },
+]
+provides-extras = ["http2"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8" },
+    { name = "ruff", specifier = ">=0.11" },
+]
 
 [[package]]
 name = "packaging"
