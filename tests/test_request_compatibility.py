@@ -1,12 +1,13 @@
-"""Frozen fake-transport requests from origin/main; existing decisions must keep their cache keys."""
+"""Frozen fake-transport requests from origin/main with shared-runtime v2 answer keys."""
 
 import hashlib
 import json
 from pathlib import Path
 
 import pytest
+from jevkit_core import answer_key
 
-from jgrep.core import BACKENDS, Cache
+from jgrep.core import PROVIDERS, Backend
 from test_cli import Fake, env, jgrep, write
 
 
@@ -59,8 +60,8 @@ def capture(tmp_path, name):
     fake = Captured()
     code, out, err, _ = jgrep([*arguments(tmp_path, name), "--api", "openrouter", "--no-cache", "-j", "1"], fake=fake)
     assert code in (0, 1) and not err
-    backend = BACKENDS["openrouter"]
-    keys = [[Cache.key(body["model"], body["state"], q, api=backend.name, url=backend.url)
+    provider = PROVIDERS["openrouter"]
+    keys = [[answer_key(Backend(provider.name, provider.url, body["model"]), body["state"], q)
              for q in body["questions"].values()] for body in fake.bodies]
     result = {"bodies": fake.bodies, "wire_sha256": fake.wire, "cache_keys": keys}
     if name.startswith("estimate_"):
@@ -70,7 +71,7 @@ def capture(tmp_path, name):
 
 
 @pytest.mark.parametrize("name", CASES)
-def test_requests_and_cache_keys_match_main(tmp_path, name):
+def test_requests_and_v2_cache_keys_match_reference(tmp_path, name):
     if name == "go":
         pytest.importorskip("tree_sitter_go")
     reference = json.loads(REFERENCE.read_text())

@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 from jgrep import cli, inputs
-from jgrep.core import Jev
+from jgrep.core import Backend, Jev
 from test_cli import Fake, env, jgrep, write
 
 
@@ -65,7 +65,8 @@ def test_unexpected_reader_failure_always_signals_eof(monkeypatch):
     async def exercise():
         args = cli.parser().parse_args(["--budget", "0"])
         out, err = io.StringIO(), io.StringIO()
-        jev = Jev("test", transport=httpx.MockTransport(Fake()))
+        backend = Backend("openrouter", "https://fixture.invalid", "v1", key="test")
+        jev = Jev(backend, transport=httpx.MockTransport(Fake()))
         code = await asyncio.wait_for(cli.run(args, ["alpha"], ["broken.txt"], jev, out, err), timeout=1)
         assert code == 2 and out.getvalue() == "alpha before error\n"
         assert "reader exploded" in err.getvalue()

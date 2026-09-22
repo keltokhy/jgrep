@@ -8,10 +8,11 @@ import threading
 
 import httpx
 import pytest
+from jevkit_core import answer_key
 
 from jgrep.cli import main
 from jgrep import cli as cli_module
-from jgrep.core import BACKENDS, Cache, Jev
+from jgrep.core import PROVIDERS, Backend, Cache, Jev
 
 WORDS = ["alpha", "beta", "gamma"]
 
@@ -429,22 +430,22 @@ def test_malformed_answer_reports_error_and_preserves_later_matches(tmp_path, an
     assert out == "alpha later\n"
     assert f"{f}:1:" in err and "answer" in err
     cache = Cache()
-    key = cache.key("~typesafe/jev-latest", "bad answer", cli_module.question("alpha"),
-                    api="openrouter", url=BACKENDS["openrouter"].endpoint())
+    backend = Backend("openrouter", PROVIDERS["openrouter"].url, "~typesafe/jev-latest")
+    key = answer_key(backend, "bad answer", cli_module.question("alpha"))
     assert cache.get(key) is None
-    cache.db.close()
+    cache.close()
 
 
 def test_malformed_cached_answer_does_not_block_later_matches(tmp_path):
     cache = Cache()
-    key = cache.key("~typesafe/jev-latest", "bad answer", cli_module.question("alpha"),
-                    api="openrouter", url=BACKENDS["openrouter"].endpoint())
+    backend = Backend("openrouter", PROVIDERS["openrouter"].url, "~typesafe/jev-latest")
+    key = answer_key(backend, "bad answer", cli_module.question("alpha"))
     cache.put(key, {})
-    cache.db.close()
+    cache.close()
     f = write(tmp_path, "a.txt", "bad answer\nalpha later\n")
     code, out, err, _ = jgrep(["alpha", f])
     assert code == 2 and out == "alpha later\n"
-    assert f"{f}:1:" in err
+    assert f"{f}:1:" in err and "question 'd0'" in err
 
 
 def test_unexpected_judge_exception_is_reported(monkeypatch, tmp_path):

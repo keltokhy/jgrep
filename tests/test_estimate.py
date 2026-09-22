@@ -5,7 +5,7 @@ import json
 import pytest
 
 from jgrep import cli
-from jgrep.core import Cache, cache_path
+from jgrep.core import Cache
 from test_cli import env, jgrep, write
 from test_code_inputs import REMOVAL
 
@@ -16,7 +16,7 @@ def test_estimate_without_credentials_never_creates_client_or_cache(monkeypatch,
     path = write(tmp_path, "data.txt", "alpha\nalpha\n\nother\n")
     code, out, err, fake = jgrep(["alpha", path, "--estimate", "--json"])
     result = json.loads(out)
-    assert code == 0 and not err and not fake.bodies and not cache_path().exists()
+    assert code == 0 and not err and not fake.bodies and not Cache.default_path().exists()
     assert result["records"] == 4 and result["blank_records"] == 1
     assert result["estimated_calls"] == 2 and result["duplicate_records"] == 1
     assert result["call_upper_bound"] == 3
@@ -28,13 +28,13 @@ def test_estimate_uses_existing_cache_read_only_and_no_cache_flag(tmp_path):
     assert jgrep(["alpha", path])[0] == 0
     guard = Cache()
     guard.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    before = cache_path().read_bytes()
+    before = Cache.default_path().read_bytes()
     code, out, _, fake = jgrep(["alpha", path, "--estimate", "--json"])
     result = json.loads(out)
     assert code == 0 and not fake.bodies and result["cached_records"] == 2
     assert result["estimated_calls"] == 0 and result["estimated_cost_usd"] == 0
-    assert cache_path().read_bytes() == before
-    guard.db.close()
+    assert Cache.default_path().read_bytes() == before
+    guard.close()
     result = json.loads(jgrep(["alpha", path, "--estimate", "--json", "--no-cache"])[1])
     assert result["estimated_calls"] == 2 and result["cached_records"] == 0
 

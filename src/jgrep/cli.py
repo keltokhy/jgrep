@@ -24,7 +24,7 @@ from concurrent.futures import CancelledError
 from dataclasses import replace
 
 from . import __version__
-from .core import BACKENDS, Cache, Jev, JevError, JevFatal, config_dir, resolve_backend
+from .core import PROVIDERS, Cache, Jev, JevError, JevFatal, Settings, resolve_backend
 from .diff_context import describe, tally
 from .inputs import STDIN, Record, discover, records
 
@@ -73,7 +73,7 @@ def parser() -> argparse.ArgumentParser:
                '  jgrep --whole "uses a bunching estimator" abstracts/*.txt\n\n'
                "Jev is reached through TypeSafe's API (TYPESAFE_API_KEY), OpenRouter (OPENROUTER_API_KEY) or a\n"
                "System One gateway of your own (JEV_GATEWAY_URL and JEV_GATEWAY_API_KEY).\n"
-               f"Keys can also live in {config_dir()}/typesafe.key, openrouter.key or gateway.key.")
+               f"Keys can also live in {Settings.from_env().config_dir}/typesafe.key, openrouter.key or gateway.key.")
     ap.add_argument("args", nargs="*", help=argparse.SUPPRESS)
     ap.add_argument("-e", dest="descriptions", action="append", metavar="DESCRIPTION",
                     help="a description; repeat for several, which are judged in one call (a line matches if any fits)")
@@ -124,7 +124,7 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--max-chars", type=int, default=8000, metavar="N",
                     help="judge only the first N characters of a record (default 8000)")
     ap.add_argument("--no-cache", action="store_true", help="do not read or write the answer cache")
-    ap.add_argument("--api", choices=list(BACKENDS), help="which API to call (default: whichever has a key)")
+    ap.add_argument("--api", choices=list(PROVIDERS), help="which API to call (default: whichever has a key)")
     ap.add_argument("--model", metavar="ID", help="model ID to request (default: the API's latest Jev)")
     ap.add_argument("--stats", action=argparse.BooleanOptionalAction, default=None,
                     help="print calls, tokens and cost to stderr at the end (default: when stderr is a terminal)")
@@ -489,13 +489,13 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
     if not files:
         return 2 if discovery_errors else 1
     try:
-        backend, key = resolve_backend(args.api)
+        backend = resolve_backend(args.api, model=args.model)
     except JevFatal as e:
         print(f"jgrep: {e}", file=err)
         return 2
 
-    jev = Jev(key, backend, model=args.model, timeout=args.timeout, concurrency=args.concurrency,
-              cache=None if args.no_cache else Cache(), transport=transport)
+    jev = Jev(backend, timeout=args.timeout, concurrency=args.concurrency,
+              store=None if args.no_cache else Cache(), transport=transport)
     t0 = time.perf_counter()
     try:
         code = asyncio.run(run(args, descriptions, files, jev, out, err))

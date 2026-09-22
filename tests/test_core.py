@@ -1,7 +1,6 @@
-"""Response validation and deadline regressions; only a local HTTP server is used."""
+"""Response validation and deadline regressions against fake transports."""
 
 import asyncio
-import hashlib
 import json
 
 import httpx
@@ -19,48 +18,29 @@ def env(monkeypatch):
 @pytest.mark.parametrize("retry", [False, True])
 def test_total_deadline_includes_drip_fed_body_and_retries(retry):
     async def exercise():
-        handlers = set()
         calls = []
         chunks = []
 
-        async def handle(reader, writer):
-            task = asyncio.current_task()
-            handlers.add(task)
-            try:
-                headers = await reader.readuntil(b"\r\n\r\n")
-                length = next(int(line.split(b":", 1)[1]) for line in headers.split(b"\r\n")
-                              if line.lower().startswith(b"content-length:"))
-                await reader.readexactly(length)
-                calls.append(1)
-                if retry and len(calls) == 1:
-                    writer.write(b"HTTP/1.1 503 Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
-                    await writer.drain()
-                    return
-                body = json.dumps({"answers": {"d0": {"noul": 0.9}}}).encode()
-                writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: " + str(len(body)).encode()
-                             + b"\r\nConnection: close\r\n\r\n")
-                # Every socket read completes well within the HTTPX timeout, but
-                # the complete response takes longer than the remaining budget.
-                for byte in body:
-                    await asyncio.sleep(0.02)
-                    writer.write(bytes([byte]))
-                    await writer.drain()
-                    chunks.append(1)
-            except (ConnectionError, asyncio.IncompleteReadError):
-                pass
-            finally:
-                writer.close()
-                try:
-                    await writer.wait_closed()
-                except ConnectionError:
-                    pass
-                handlers.discard(task)
+        class Drip(httpx.AsyncByteStream):
+            def __init__(self, body):
+                self.body = body
 
-        server = await asyncio.start_server(handle, "127.0.0.1", 0)
-        port = server.sockets[0].getsockname()[1]
-        backend = Backend("local", f"http://127.0.0.1:{port}", "test", "UNUSED")
+            async def __aiter__(self):
+                for byte in self.body:
+                    await asyncio.sleep(0.02)
+                    chunks.append(1)
+                    yield bytes([byte])
+
+        async def handle(request):
+            calls.append(1)
+            if retry and len(calls) == 1:
+                return httpx.Response(503)
+            body = json.dumps({"answers": {"d0": {"noul": 0.9}}}).encode()
+            return httpx.Response(200, headers={"Content-Length": str(len(body))}, stream=Drip(body))
+
+        backend = Backend("local", "https://fixture.invalid", "test", key="test-key")
         timeout = 0.5 if retry else 0.15
-        jev = Jev("test-key", backend, timeout=timeout)
+        jev = Jev(backend, timeout=timeout, transport=httpx.MockTransport(handle))
         try:
             with pytest.raises(JevError, match="gave up after"):
                 await jev.ask("alpha", {"d0": {"type": "noul", "instructions": "alpha"}})
@@ -69,12 +49,6 @@ def test_total_deadline_includes_drip_fed_body_and_retries(retry):
             assert jev.meter.calls == 0
         finally:
             await jev.close()
-            server.close()
-            await server.wait_closed()
-            pending = list(handlers)
-            for task in pending:
-                task.cancel()
-            await asyncio.gather(*pending, return_exceptions=True)
 
     asyncio.run(exercise())
 
@@ -83,17 +57,25 @@ def test_total_deadline_includes_drip_fed_body_and_retries(retry):
 def test_invalid_answers_are_not_partially_cached(tmp_path, answers):
     async def exercise():
         cache = Cache(tmp_path / "answers.sqlite")
-        transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"answers": answers}))
-        jev = Jev("test-key", cache=cache, transport=transport)
+        calls = []
+
+        def respond(request):
+            calls.append(request)
+            return httpx.Response(200, json={"answers": answers})
+
+        transport = httpx.MockTransport(respond)
+        backend = Backend("openrouter", "https://fixture.invalid", "v1", key="test-key")
+        jev = Jev(backend, store=cache, transport=transport)
         questions = {"d0": {"type": "noul", "instructions": "alpha"},
                      "d1": {"type": "noul", "instructions": "beta"}}
         try:
             with pytest.raises(JevError, match="answer"):
                 await jev.ask("text", questions)
+            assert len(calls) == 1
             assert cache.db.execute("SELECT COUNT(*) FROM answers").fetchone()[0] == 0
         finally:
             await jev.close()
-            cache.db.close()
+            cache.close()
 
     asyncio.run(exercise())
 
@@ -103,9 +85,6 @@ def test_cache_separates_endpoints_and_providers_but_reuses_same_origin(tmp_path
         cache = Cache(tmp_path / "answers.sqlite")
         calls = []
         questions = {"d0": {"type": "noul", "instructions": "alpha"}}
-        # Old entries have no trustworthy provider/endpoint identity and must be ignored.
-        legacy = json.dumps(["same-model", "text", questions["d0"]], sort_keys=True, ensure_ascii=False)
-        cache.put(hashlib.sha256(legacy.encode()).hexdigest(), {"noul": 0.8})
         origins = [("gateway", "https://first.invalid", 0.9),
                    ("gateway", "https://second.invalid", 0.1),
                    ("other", "https://second.invalid", 0.2),
@@ -116,14 +95,14 @@ def test_cache_separates_endpoints_and_providers_but_reuses_same_origin(tmp_path
                     calls.append(str(request.url))
                     return httpx.Response(200, json={"answers": {"d0": {"noul": expected}}})
 
-                jev = Jev("test-key", Backend(api, url, "same-model", "UNUSED"), cache=cache,
-                          transport=httpx.MockTransport(respond))
+                backend = Backend(api, url, "same-model", key="test-key")
+                jev = Jev(backend, store=cache, transport=httpx.MockTransport(respond))
                 try:
                     assert (await jev.ask("text", questions))["d0"]["noul"] == expected
                 finally:
                     await jev.close()
             assert len(calls) == 3
         finally:
-            cache.db.close()
+            cache.close()
 
     asyncio.run(exercise())
