@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.4.1
 
+- The tool itself is unchanged from 0.4.0; this release brings its README on PyPI up to date.
 - Compare DiffusionGemma and Laya with Jev 1.13 on jgrep's benchmarks, in
   `docs/benchmarks/local-models-2026-09-22.md` and its JSON, summarized in the README.
 - Add `bench/backend_eval.py`, which runs and scores a local server, and `bench/context_eval.py`,
