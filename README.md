@@ -32,8 +32,8 @@ uv tool upgrade jev-grep        # upgrade an existing installation
 For Go and C function parsing, install the optional syntax parsers: `uv tool install 'jev-grep[code]'`.
 Python function parsing and unified diffs work with the base package.
 
-jgrep needs a key for one of two APIs, or for a gateway of your own (below). With keys for
-several, it uses TypeSafe's.
+jgrep needs a key for one of two APIs, or for a gateway of your own; a server on your own machine
+needs none (both below). With keys for several, it uses TypeSafe's.
 
 | API | Key | Get one |
 |---|---|---|
@@ -65,6 +65,10 @@ chosen automatically, need no key, and count as $0 in `--stats` and `--estimate`
 `JEV_PRICE_PER_MTOK` is set. The runtime's [DiffusionGemma](https://github.com/keltokhy/jevkit-core/blob/main/docs/diffusiongemma.md)
 and [Laya](https://github.com/keltokhy/jevkit-core/blob/main/docs/laya.md) guides explain the setup;
 start with `-j 1` and a long `--timeout` while a local model warms up.
+
+[How well does it work](#how-well-does-it-work) compares both with Jev, and the
+[local-model comparison](https://github.com/keltokhy/jgrep/blob/main/docs/benchmarks/local-models-2026-09-22.md)
+has the full results.
 
 ## Use
 
@@ -162,12 +166,13 @@ contains `diff --git` is not mistaken for the patch, and the trailing `-- ` sign
 diff content. With `--oneline` or a custom `--format` no id is recognized: hunks carry none, `-W`
 reads the working tree and reports `source_mismatch` if the hunk's new-side lines differ at their
 given position. Unindented message text can be rejected as content outside a hunk.
-A commit without a patch, such as a merge, has no
-records. A commit whose patch cannot be read, such as a combined merge diff or one with a malformed
-quoted path, is an error naming that commit, and later commits are still read.
-An annotated tag's preamble is skipped. A final rename, mode-only change or empty-file change
-still reports a metadata-only error, while the same commit's text hunks are judged. Quoted paths
-decode both Git's octal byte escapes and raw UTF-8 from `core.quotePath=false`.
+
+A commit without a patch, such as a merge, has no records. A commit whose patch cannot be read,
+such as a combined merge diff or one with a malformed quoted path, is an error naming that commit,
+and later commits are still read. An annotated tag's preamble is skipped. A final rename, mode-only
+change or empty-file change still reports a metadata-only error, while the same commit's text hunks
+are judged. Quoted paths decode both Git's octal byte escapes and raw UTF-8 from
+`core.quotePath=false`.
 
 Two pre-existing diff-reader limitations remain: CRLF-converted patches can leave a trailing `\r`
 in `new_file` (for example, `"a.py\r"`) and produce spurious metadata-only errors; Git-quoted paths
@@ -193,13 +198,14 @@ is not read. In both cases the file must contain the hunk's new-side lines at th
 or context falls back to `source_mismatch`. This checks only those lines at that position, not the
 file's identity or its remaining contents: a different file with identical lines at the same
 position would also attach. Without a commit id, the context is labelled "as it reads in the
-working tree"; that tree may contain later edits outside the hunk. Functions come from the readers
-`--functions` uses: Python, and Go and C with the `[code]` extra. A function encloses the change
-when it contains an added line, or
-the lines on both sides of a removal. Unchanged hunk lines that reach into a neighbouring function
-do not pull it in. When a change touches several functions, the context runs from the first to the
-last of them. A removal at the very end of a Python function can fall outside the remaining span
-and be counted as `outside_function`.
+working tree"; that tree may contain later edits outside the hunk.
+
+Functions come from the readers `--functions` uses: Python, and Go and C with the `[code]` extra.
+A function encloses the change when it contains an added line, or the lines on both sides of a
+removal. Unchanged hunk lines that reach into a neighbouring function do not pull it in. When a
+change touches several functions, the context runs from the first to the last of them. A removal
+at the very end of a Python function can fall outside the remaining span and be counted as
+`outside_function`.
 
 `-W` reads files that the patch names and sends the enclosing function to the API, so point
 `--repo` at a repository you trust. A patch is treated as untrusted input. jgrep confirms the
@@ -242,9 +248,9 @@ with or without `-W`. A function over `--max-chars` is shortened, not refused: t
 one-line header included, is held to `--max-chars` by keeping the whole lines nearest the change,
 the header states which lines are shown, `unit.context.truncated` is true, and the run reports how
 many contexts were shortened. One request therefore holds at most `--max-chars` of hunk and
-`--max-chars` of context.
-`--estimate` prices that same request, and `--emit-records` adds a `context` field with the text
-the judge would see after the hunk, or null when the hunk is judged alone.
+`--max-chars` of context. `--estimate` prices that same request, and `--emit-records` adds a
+`context` field with the text the judge would see after the hunk, or null when the hunk is judged
+alone.
 
 `-W` requires `--diff`, so it cannot be combined with `--functions`, `-C`, `--para`, `--whole`,
 `--chunks` or structured input, and `--repo` requires `-W`. Git can widen hunks itself with
@@ -289,13 +295,16 @@ the producer's exit status before treating its export as complete.
 
 These modes retrieve evidence for review. Model scores do not prove a bug or certify that a change
 is safe. Results and observed failures on 20 handwritten examples are in the
-[code-review experiment](https://github.com/keltokhy/jgrep/blob/main/docs/CODE_REVIEW.md).
+[code-review experiment](https://github.com/keltokhy/jgrep/blob/main/docs/CODE_REVIEW.md), and the
+same examples on the two local servers are in the
+[local-model comparison](https://github.com/keltokhy/jgrep/blob/main/docs/benchmarks/local-models-2026-09-22.md#code-review).
 
 ## Cost preview
 
 `--estimate` uses the same input mode, selected field, context window, function context,
-descriptions and model as the filter. It reads existing cached answers in read-only mode and estimates reuse of exact repeated
-requests. It does not normalize whitespace or identifiers, create a cache, or contact the provider.
+descriptions and model as the filter. It reads existing cached answers in read-only mode and
+estimates reuse of exact repeated requests. It does not normalize whitespace or identifiers, create
+a cache, or contact the provider.
 Without a configured provider it uses TypeSafe's default model; use `--api` and `--model` to preview
 a specific setup. No API key is required.
 
@@ -376,7 +385,8 @@ one; `--estimate` with the same options shows the difference before any call is 
 jgrep stops at `--budget`, one dollar by default, so a stray `jgrep pattern huge.log` cannot
 run up a bill. A dollar is about 80,000 lines. A stopped run loses nothing: rerun with a higher
 budget and everything already judged comes from the cache. For a long-lived `tail -f` monitor,
-set your own default once with `export JGREP_BUDGET=20`, or `0` for no limit. With `--stats`, or whenever stderr is a terminal, it prints what the run cost:
+set your own default once with `export JGREP_BUDGET=20`, or `0` for no limit. With `--stats`, or
+whenever stderr is a terminal, it prints what the run cost:
 
 ```
 jgrep: 994 records, 33 matched; 994 calls, 0 cached; 292,839 tokens; $0.0123; 4.6s
@@ -435,6 +445,27 @@ On borderline lines the probabilities land in between, which is what `-p` is for
 0.46  [does not mention a landlord]  The owner of the building never answers the phone.
 ```
 
+**On a local server.** On 2026-09-22 the two [local servers](#local-servers-experimental), on an
+Apple M3 Ultra, answered the same questions as Jev 1.13 on 2,000 of the SMS messages, 2,000 of the
+AG News articles and 60 records padded with neutral text to 7,000 characters. The
+[local-model comparison](https://github.com/keltokhy/jgrep/blob/main/docs/benchmarks/local-models-2026-09-22.md)
+has the full results, including code review.
+
+| | Jev 1.13 (OpenRouter) | DiffusionGemma (`openjev-0.1`, local) | Laya (`laya-421m`, local) |
+|---|---:|---:|---:|
+| SMS spam: precision / recall at 0.5 | 0.86 / 0.96 | 0.80 / 0.94 | 0.53 / 0.99 |
+| SMS spam: F1 at 0.5 | **0.91** | 0.87 | 0.69 |
+| AG News: top-1 accuracy | 86.75% | 87.35% | **92.45%** |
+| 7,000-character records: correct of 300 decisions | 300 | 298 | refused |
+| Wall time on the M3 Ultra, SMS / news | | 596 s / 693 s | 46 s / 157 s |
+
+DiffusionGemma is a reasonable substitute for Jev on tasks like these when the text must stay on
+your machine or a large run should cost nothing: its scores are close to Jev's on all three tests.
+It is the slowest of the three; 2,000 news articles took 693 s. Laya is good for sorting short
+texts into a few broad topics, where it was the most accurate. It reads at most 512 tokens,
+question included, so jgrep reported an error for every 7,000-character record. Jev remains the
+default.
+
 Things to know:
 
 - These are a model's judgments. Check a sample before you rely on a filter.
@@ -460,10 +491,10 @@ uv run python bench/accuracy.py prepare && uv run python bench/accuracy.py spam 
 ```
 
 `src/jgrep/inputs.py` handles file discovery, structured records, and document passages.
-`src/jgrep/core.py` is the client: API backends, retries inside a time budget, the cache,
-in-flight deduplication and the cost meter. It shares its design with
-[jlink](https://github.com/keltokhy/jlink), which links records across datasets with the same
-model.
+`src/jgrep/core.py` names the providers jgrep offers. The client behind them (API backends,
+retries inside a time budget, the cache, in-flight deduplication and the cost meter) is the shared
+runtime described below, which [jlink](https://github.com/keltokhy/jlink) also uses to link
+records across datasets with the same model.
 
 MIT license.
 

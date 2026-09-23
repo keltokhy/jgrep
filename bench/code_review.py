@@ -1,7 +1,9 @@
 """Run the actual scan pipeline against pre-labeled, synthetic code changes.
 
-uv run --extra code python bench/code_review.py --output docs/benchmarks/code-review.json
+uv run --extra code python bench/code_review.py --api openrouter --model typesafe/jev-1.13 --output docs/benchmarks/code-review.json
+uv run --extra code python bench/code_review.py --api laya --model laya-421m --jobs 4 --timeout 120 --budget 0 --output OUT.json
 No answer cache. No private source code. The corpus is deliberately small and not held out.
+--api is required so a local run can never fall through to a hosted provider; --budget 0 means no limit.
 """
 
 from __future__ import annotations
@@ -14,14 +16,14 @@ import hashlib
 import io
 import json
 import platform
-import statistics
+import re
 import tempfile
 import time
-from dataclasses import asdict
 from pathlib import Path
 
 from jgrep.cli import parser, run
-from jgrep.core import Jev, resolve_backend
+from jevkit_runtime import Client, resolve
+from jgrep.core import PROVIDERS
 
 
 class Capture(io.StringIO):
@@ -38,15 +40,16 @@ class Capture(io.StringIO):
         return super().write(value)
 
 
-async def measure(mode, files, task, labels, backend, key, model, budget):
+async def measure(mode, files, task, labels, backend, budget, jobs=32, timeout=30):
     flags = {"diff_hunks": ["--diff"], "diff_lines": [], "added_lines": [],
              "functions": ["--functions"], "function_lines": [], "function_line_context": ["-C", "2"]}[mode]
-    args = parser().parse_args(["--json", "-p", "0", "--budget", str(budget), "--no-cache", *flags])
-    jev = Jev(key, backend, model=model, cache=None, concurrency=args.concurrency, timeout=30)
+    args = parser().parse_args(["--json", "-p", "0", "--budget", str(budget), "--no-cache",
+                                "-j", str(jobs), "--timeout", str(timeout), *flags])
+    jev = Client(backend, timeout=args.timeout, concurrency=args.concurrency, store=None)
     out, err = Capture(), io.StringIO()
     code = await run(args, [task], files, jev, out, err)
     elapsed = time.perf_counter() - out.started
-    if code not in (0, 1):
+    if code not in (0, 1) and not out.rows:
         raise RuntimeError(err.getvalue())
     rows = [{**row, "case": Path(row["file"]).stem} for row in out.rows]
     for row in rows:
@@ -56,9 +59,10 @@ async def measure(mode, files, task, labels, backend, key, model, budget):
     positive = {case for case, label in labels.items() if label}
     tp, fp, fn = len(predicted & positive), len(predicted - positive), len(positive - predicted)
     useful = [row["observed_seconds"] for row in hits if labels[row["case"]]]
-    meter = asdict(jev.meter)
-    latencies = meter.pop("latencies")
-    return {"mode": mode, "task": task, "threshold": 0.5, "seconds": elapsed,
+    meter = {"calls": jev.meter.calls, "cached": jev.meter.cached, "retries": jev.meter.retries,
+             "input_tokens": jev.meter.input_tokens, "cost": jev.meter.cost,
+             "model": jev.meter.model or jev.meter.requested_model, "provenance": jev.meter.answer_provenance}
+    return {"mode": mode, "task": task, "threshold": 0.5, "seconds": elapsed, "exit_code": code,
             "first_useful_seconds": min(useful) if useful else None,
             "case_precision": tp / (tp + fp) if tp + fp else 0,
             "case_recall": tp / (tp + fn) if tp + fn else 0,
@@ -67,24 +71,36 @@ async def measure(mode, files, task, labels, backend, key, model, budget):
             "missed_positive_cases": sorted(positive - predicted),
             "records_to_review": len(hits),
             "records_from_negative_cases": sum(not labels[row["case"]] for row in hits),
-            "median_call_seconds": statistics.median(latencies) if latencies else None,
-            "meter": meter, "rows": rows, "diagnostics": err.getvalue()}
+            "failed_records": failed(err.getvalue()), "meter": meter, "rows": rows, "diagnostics": err.getvalue()}
+
+
+def failed(diagnostics: str) -> int:
+    """Records that got no answer: jgrep names the first ten and counts the rest."""
+    shown = len(re.findall(r"^jgrep: .*:\d+: ", diagnostics, re.M))
+    return shown + sum(int(n.replace(",", "")) for n in re.findall(r"and ([\d,]+) more errors", diagnostics))
 
 
 async def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--api", default="openrouter")
-    ap.add_argument("--model", default="typesafe/jev-1.13")
-    ap.add_argument("--budget", type=float, default=0.25, help="total observed spend guard across runs")
+    ap.add_argument("--api", required=True, choices=list(PROVIDERS))
+    ap.add_argument("--model", required=True)
+    ap.add_argument("--budget", type=float, default=0.25, help="total observed spend guard across runs; 0 for none")
+    ap.add_argument("--jobs", type=int, default=32)
+    ap.add_argument("--timeout", type=float, default=30)
+    ap.add_argument("--cases", help="comma-separated case ids to keep, for a quick rehearsal")
     ap.add_argument("--output", type=Path, required=True)
     options = ap.parse_args()
     fixture = Path(__file__).parent / "fixtures/code_review.json"
     corpus = json.loads(fixture.read_text())
-    backend, key = resolve_backend(options.api)
+    if options.cases:
+        keep = options.cases.split(",")
+        corpus["cases"] = [case for case in corpus["cases"] if case["id"] in keep]
+    backend = resolve(PROVIDERS, options.api, model=options.model)
     report = {"fixture_sha256": hashlib.sha256(fixture.read_bytes()).hexdigest(),
               "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "python": platform.python_version(), "platform": platform.platform(),
-              "requested_model": options.model, "cache": False,
+              "requested_model": options.model, "cache": False, "api": options.api, "url": backend.url,
+              "jobs": options.jobs, "timeout": options.timeout, "cases": [case["id"] for case in corpus["cases"]],
               "limitations": ["20 handwritten examples, not a held-out production benchmark.",
                               "Labels assume SaveConfig, store.Put, AddMessage, Commit, and restoreSnapshot return errors.",
                               "Case-level precision/recall: any matching record flags the case. Individual lines are not labeled.",
@@ -115,11 +131,11 @@ async def main():
             ("functions", "functions", "function_task", "function_relevant"),
         ):
             spent = sum(r["meter"]["cost"] for r in report["runs"])
-            if spent >= options.budget:
+            if options.budget and spent >= options.budget:
                 raise RuntimeError("benchmark budget exhausted")
             labels = {case["id"]: case[label_key] for case in corpus["cases"]}
-            result = await measure(mode, inputs[group], corpus[task_key], labels, backend, key,
-                                   options.model, options.budget - spent)
+            result = await measure(mode, inputs[group], corpus[task_key], labels, backend,
+                                   options.budget - spent if options.budget else 0, options.jobs, options.timeout)
             report["runs"].append(result)
             report["total_reported_cost_usd"] = sum(r["meter"]["cost"] for r in report["runs"])
             options.output.parent.mkdir(parents=True, exist_ok=True)

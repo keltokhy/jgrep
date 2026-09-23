@@ -1,0 +1,1668 @@
+{
+  "title": "jgrep on two local decision servers, beside Jev 1.13, on the frozen September 21 samples",
+  "date": "2026-09-22",
+  "frozen_at": "2026-09-23T05:54:23-04:00",
+  "timezone": "America/New_York",
+  "hardware": "Apple M3 Ultra, 96 GiB unified memory",
+  "samples": {
+    "bundle": "the September 21 comparison's bundle, kept outside the repository (JGREP_FROZEN_BUNDLE)",
+    "seed": 20260921,
+    "manifest_sha256": "bad945dc10414664fbc90c75f3ba6fa9042afa6b22d4f8cffa0f55c6d5888655",
+    "datasets": {
+      "spam": {
+        "n": 2000,
+        "population_n": 5574,
+        "sample_labels": {
+          "0": 1732,
+          "1": 268
+        },
+        "unique_texts": 1925,
+        "sample_text_sha256": "139ffaabdc366ee764747bd8c90a40e253f0dcffc3b68cd037f8acec7bead64a",
+        "descriptions": [
+          "an unsolicited spam, scam or marketing text message"
+        ]
+      },
+      "news": {
+        "n": 2000,
+        "population_n": 7600,
+        "sample_labels": {
+          "1": 500,
+          "2": 500,
+          "4": 500,
+          "3": 500
+        },
+        "unique_texts": 2000,
+        "sample_text_sha256": "2ea9a0ef6057a5079006066b686890e4da57a4987f684690f8f275006367b3fb",
+        "descriptions": [
+          "news about world affairs, politics or conflict",
+          "news about sports",
+          "news about business, markets or the economy",
+          "news about science or technology"
+        ]
+      }
+    },
+    "code": "bench/fixtures/code_review.json, 20 handwritten Go cases, six record modes",
+    "context": "bench/context_eval.py: 30 labeled lines x 5 paddings x 5 descriptions"
+  },
+  "models": {
+    "jev": {
+      "api": "openrouter",
+      "requested_model": "typesafe/jev-1.13",
+      "resolved_model": "typesafe/jev-1.13-20260917",
+      "recorded": "2026-09-21",
+      "reused": "not re-run; read from the September 21 bundle",
+      "jobs": {
+        "spam": "16 then 8",
+        "news": 8,
+        "code": 8,
+        "context": 4
+      },
+      "timeout": {
+        "spam": "30 then 120",
+        "news": 120,
+        "code": 120,
+        "context": 120
+      },
+      "notes": [
+        "SMS needed two attempts (a deadline, then an HTTP 520, one record each); scored from the recovered file; its 198.4 s includes both attempts."
+      ],
+      "provenance": {
+        "spam": {
+          "file": "openrouter-spam-recovered.json",
+          "sha256": "ce95c2cd6ee791730b0ab069ce5181b08da54ccd6156a35a9c0859885050ae06",
+          "recorded": "2026-09-21",
+          "calls_made_today": 0
+        },
+        "news": {
+          "file": "jev-retry/openrouter-news.json",
+          "sha256": "5d2ed9bb07f06dca4ea6d78668ed012640b2699c9505761adfd53ebd7d7c28ab",
+          "recorded": "2026-09-21",
+          "calls_made_today": 0
+        },
+        "code": {
+          "file": "openrouter-code-review.json",
+          "sha256": "a72d943913a0df80376ee1b27b5f3fb33421b79d837752331b53eed61f219dbf",
+          "recorded": "2026-09-21",
+          "calls_made_today": 0
+        },
+        "context": {
+          "file": "openrouter-context.json",
+          "sha256": "b71da939317d2fb46880555ea13dcf1c1d022dc99d7c315d3d6663aac09479eb",
+          "recorded": "2026-09-21",
+          "calls_made_today": 0
+        }
+      }
+    },
+    "diffusiongemma": {
+      "requested_model": "openjev-0.1",
+      "server": {
+        "name": "OpenJev",
+        "commit": "e04794ab36e4f7e6040c2547baecdb2737ce2e79",
+        "weights": "mlx-community/diffusiongemma-26B-A4B-it-4bit",
+        "revision": "a7a81407613811e8ba63af92ac0d852b809e191f"
+      }
+    },
+    "laya": {
+      "requested_model": "laya-421m",
+      "server": {
+        "name": "jevkit-core scripts/laya_server.py",
+        "runtime": "laya-mlx",
+        "commit": "fc1df62828a3fedf4d8229fdac1cbd85f1cdf337",
+        "weights": "aac6fef/laya-mlx",
+        "revision": "047678560251f28113ee8f5df4be82102c7bf336",
+        "context_tokens": 512,
+        "overflow": "HTTP 422, reported by jgrep as a failed record"
+      }
+    }
+  },
+  "benchmarks": {
+    "spam": {
+      "jev": {
+        "seconds": 198.40895129099954,
+        "n": 2000,
+        "at_0.5": {
+          "precision": 0.8624161073825504,
+          "recall": 0.9589552238805971,
+          "f1": 0.9081272084805654,
+          "tp": 257,
+          "fp": 41,
+          "fn": 11,
+          "tn": 1691
+        },
+        "at_0.9": {
+          "precision": 0.9910313901345291,
+          "recall": 0.8246268656716418,
+          "f1": 0.90020366598778,
+          "tp": 221,
+          "fp": 2,
+          "fn": 47,
+          "tn": 1730
+        },
+        "sweep": [
+          {
+            "precision": 0.3635116598079561,
+            "recall": 0.9888059701492538,
+            "f1": 0.5315947843530592,
+            "tp": 265,
+            "fp": 464,
+            "fn": 3,
+            "tn": 1268,
+            "threshold": 0.1
+          },
+          {
+            "precision": 0.7245179063360881,
+            "recall": 0.9813432835820896,
+            "f1": 0.8335974643423137,
+            "tp": 263,
+            "fp": 100,
+            "fn": 5,
+            "tn": 1632,
+            "threshold": 0.3
+          },
+          {
+            "precision": 0.8624161073825504,
+            "recall": 0.9589552238805971,
+            "f1": 0.9081272084805654,
+            "tp": 257,
+            "fp": 41,
+            "fn": 11,
+            "tn": 1691,
+            "threshold": 0.5
+          },
+          {
+            "precision": 0.9365671641791045,
+            "recall": 0.9365671641791045,
+            "f1": 0.9365671641791045,
+            "tp": 251,
+            "fp": 17,
+            "fn": 17,
+            "tn": 1715,
+            "threshold": 0.7
+          },
+          {
+            "precision": 0.9910313901345291,
+            "recall": 0.8246268656716418,
+            "f1": 0.90020366598778,
+            "tp": 221,
+            "fp": 2,
+            "fn": 47,
+            "tn": 1730,
+            "threshold": 0.9
+          },
+          {
+            "precision": 0.9948979591836735,
+            "recall": 0.7276119402985075,
+            "f1": 0.8405172413793104,
+            "tp": 195,
+            "fp": 1,
+            "fn": 73,
+            "tn": 1731,
+            "threshold": 0.95
+          },
+          {
+            "precision": 1.0,
+            "recall": 0.10074626865671642,
+            "f1": 0.18305084745762712,
+            "tp": 27,
+            "fp": 0,
+            "fn": 241,
+            "tn": 1732,
+            "threshold": 0.99
+          }
+        ],
+        "brier": 0.024435,
+        "ece_10_bins": 0.07364,
+        "confident_errors": 5
+      },
+      "diffusiongemma": {
+        "seconds": 596.2108004589682,
+        "n": 2000,
+        "at_0.5": {
+          "precision": 0.8044871794871795,
+          "recall": 0.9365671641791045,
+          "f1": 0.8655172413793103,
+          "tp": 251,
+          "fp": 61,
+          "fn": 17,
+          "tn": 1671
+        },
+        "at_0.9": {
+          "precision": 0.8875968992248062,
+          "recall": 0.8544776119402985,
+          "f1": 0.870722433460076,
+          "tp": 229,
+          "fp": 29,
+          "fn": 39,
+          "tn": 1703
+        },
+        "sweep": [
+          {
+            "precision": 0.6573604060913706,
+            "recall": 0.9664179104477612,
+            "f1": 0.7824773413897281,
+            "tp": 259,
+            "fp": 135,
+            "fn": 9,
+            "tn": 1597,
+            "threshold": 0.1
+          },
+          {
+            "precision": 0.7604790419161677,
+            "recall": 0.9477611940298507,
+            "f1": 0.8438538205980066,
+            "tp": 254,
+            "fp": 80,
+            "fn": 14,
+            "tn": 1652,
+            "threshold": 0.3
+          },
+          {
+            "precision": 0.8044871794871795,
+            "recall": 0.9365671641791045,
+            "f1": 0.8655172413793103,
+            "tp": 251,
+            "fp": 61,
+            "fn": 17,
+            "tn": 1671,
+            "threshold": 0.5
+          },
+          {
+            "precision": 0.839041095890411,
+            "recall": 0.914179104477612,
+            "f1": 0.875,
+            "tp": 245,
+            "fp": 47,
+            "fn": 23,
+            "tn": 1685,
+            "threshold": 0.7
+          },
+          {
+            "precision": 0.8875968992248062,
+            "recall": 0.8544776119402985,
+            "f1": 0.870722433460076,
+            "tp": 229,
+            "fp": 29,
+            "fn": 39,
+            "tn": 1703,
+            "threshold": 0.9
+          },
+          {
+            "precision": 0.9466666666666667,
+            "recall": 0.7947761194029851,
+            "f1": 0.8640973630831643,
+            "tp": 213,
+            "fp": 12,
+            "fn": 55,
+            "tn": 1720,
+            "threshold": 0.95
+          },
+          {
+            "precision": 1.0,
+            "recall": 0.582089552238806,
+            "f1": 0.7358490566037735,
+            "tp": 156,
+            "fp": 0,
+            "fn": 112,
+            "tn": 1732,
+            "threshold": 0.99
+          }
+        ],
+        "brier": 0.03102067824,
+        "ece_10_bins": 0.0267844,
+        "confident_errors": 38
+      },
+      "laya": {
+        "seconds": 46.20456825004658,
+        "n": 2000,
+        "at_0.5": {
+          "precision": 0.530938123752495,
+          "recall": 0.9925373134328358,
+          "f1": 0.6918075422626788,
+          "tp": 266,
+          "fp": 235,
+          "fn": 2,
+          "tn": 1497
+        },
+        "at_0.9": {
+          "precision": 0.7898089171974523,
+          "recall": 0.9253731343283582,
+          "f1": 0.852233676975945,
+          "tp": 248,
+          "fp": 66,
+          "fn": 20,
+          "tn": 1666
+        },
+        "sweep": [
+          {
+            "precision": 0.28525641025641024,
+            "recall": 0.996268656716418,
+            "f1": 0.4435215946843854,
+            "tp": 267,
+            "fp": 669,
+            "fn": 1,
+            "tn": 1063,
+            "threshold": 0.1
+          },
+          {
+            "precision": 0.445,
+            "recall": 0.996268656716418,
+            "f1": 0.6152073732718893,
+            "tp": 267,
+            "fp": 333,
+            "fn": 1,
+            "tn": 1399,
+            "threshold": 0.3
+          },
+          {
+            "precision": 0.530938123752495,
+            "recall": 0.9925373134328358,
+            "f1": 0.6918075422626788,
+            "tp": 266,
+            "fp": 235,
+            "fn": 2,
+            "tn": 1497,
+            "threshold": 0.5
+          },
+          {
+            "precision": 0.6161137440758294,
+            "recall": 0.9701492537313433,
+            "f1": 0.7536231884057971,
+            "tp": 260,
+            "fp": 162,
+            "fn": 8,
+            "tn": 1570,
+            "threshold": 0.7
+          },
+          {
+            "precision": 0.7898089171974523,
+            "recall": 0.9253731343283582,
+            "f1": 0.852233676975945,
+            "tp": 248,
+            "fp": 66,
+            "fn": 20,
+            "tn": 1666,
+            "threshold": 0.9
+          },
+          {
+            "precision": 0.8391608391608392,
+            "recall": 0.8955223880597015,
+            "f1": 0.8664259927797834,
+            "tp": 240,
+            "fp": 46,
+            "fn": 28,
+            "tn": 1686,
+            "threshold": 0.95
+          },
+          {
+            "precision": 0.8932806324110671,
+            "recall": 0.8432835820895522,
+            "f1": 0.8675623800383877,
+            "tp": 226,
+            "fp": 27,
+            "fn": 42,
+            "tn": 1705,
+            "threshold": 0.99
+          }
+        ],
+        "brier": 0.09108465793000001,
+        "ece_10_bins": 0.14897950000000001,
+        "confident_errors": 67
+      }
+    },
+    "news": {
+      "jev": {
+        "seconds": 76.1891980409855,
+        "top1_accuracy": 0.8675,
+        "top1_ci95": [
+          0.8519344977866566,
+          0.8816564724616224
+        ],
+        "macro_f1_at_0.5": 0.8332656268400108,
+        "macro_f1_at_0.9": 0.8414512257438793,
+        "per_class": {
+          "news about world affairs, politics or conflict": {
+            "f1_at_0.5": 0.8157156220767072,
+            "f1_at_0.9": 0.8428874734607219,
+            "precision_at_0.5": 0.7662565905096661,
+            "recall_at_0.5": 0.872
+          },
+          "news about sports": {
+            "f1_at_0.5": 0.9743589743589743,
+            "f1_at_0.9": 0.9658634538152611,
+            "precision_at_0.5": 0.9610894941634242,
+            "recall_at_0.5": 0.988
+          },
+          "news about business, markets or the economy": {
+            "f1_at_0.5": 0.7135377711293942,
+            "f1_at_0.9": 0.7669305189094108,
+            "precision_at_0.5": 0.5698924731182796,
+            "recall_at_0.5": 0.954
+          },
+          "news about science or technology": {
+            "f1_at_0.5": 0.8294501397949674,
+            "f1_at_0.9": 0.7901234567901234,
+            "precision_at_0.5": 0.7766143106457243,
+            "recall_at_0.5": 0.89
+          }
+        }
+      },
+      "diffusiongemma": {
+        "seconds": 693.1441384580103,
+        "top1_accuracy": 0.8735,
+        "top1_ci95": [
+          0.8582120203166588,
+          0.8873559453642452
+        ],
+        "macro_f1_at_0.5": 0.7997808337176865,
+        "macro_f1_at_0.9": 0.8304002696537969,
+        "per_class": {
+          "news about world affairs, politics or conflict": {
+            "f1_at_0.5": 0.7177914110429447,
+            "f1_at_0.9": 0.7993079584775087,
+            "precision_at_0.5": 0.582089552238806,
+            "recall_at_0.5": 0.936
+          },
+          "news about sports": {
+            "f1_at_0.5": 0.9601554907677357,
+            "f1_at_0.9": 0.9655850540806293,
+            "precision_at_0.5": 0.9338374291115312,
+            "recall_at_0.5": 0.988
+          },
+          "news about business, markets or the economy": {
+            "f1_at_0.5": 0.7072633895818048,
+            "f1_at_0.9": 0.7331786542923434,
+            "precision_at_0.5": 0.5585168018539977,
+            "recall_at_0.5": 0.964
+          },
+          "news about science or technology": {
+            "f1_at_0.5": 0.8139130434782609,
+            "f1_at_0.9": 0.8235294117647058,
+            "precision_at_0.5": 0.72,
+            "recall_at_0.5": 0.936
+          }
+        }
+      },
+      "laya": {
+        "seconds": 157.46748862497043,
+        "top1_accuracy": 0.9245,
+        "top1_ci95": [
+          0.9120900214010068,
+          0.9352824054572093
+        ],
+        "macro_f1_at_0.5": 0.8785864701712187,
+        "macro_f1_at_0.9": 0.3421585489869115,
+        "per_class": {
+          "news about world affairs, politics or conflict": {
+            "f1_at_0.5": 0.8716356107660456,
+            "f1_at_0.9": 0.12030075187969924,
+            "precision_at_0.5": 0.9034334763948498,
+            "recall_at_0.5": 0.842
+          },
+          "news about sports": {
+            "f1_at_0.5": 0.944558521560575,
+            "f1_at_0.9": 0.5433526011560693,
+            "precision_at_0.5": 0.9704641350210971,
+            "recall_at_0.5": 0.92
+          },
+          "news about business, markets or the economy": {
+            "f1_at_0.5": 0.8166351606805293,
+            "f1_at_0.9": 0.4827586206896552,
+            "precision_at_0.5": 0.7741935483870968,
+            "recall_at_0.5": 0.864
+          },
+          "news about science or technology": {
+            "f1_at_0.5": 0.8815165876777251,
+            "f1_at_0.9": 0.2222222222222222,
+            "precision_at_0.5": 0.8378378378378378,
+            "recall_at_0.5": 0.93
+          }
+        }
+      }
+    },
+    "code": {
+      "jev": {
+        "seconds": 27.396044081891887,
+        "modes": {
+          "diff_lines": {
+            "case_precision": 0.6153846153846154,
+            "case_recall": 1.0,
+            "records_to_review": 21,
+            "seconds": 8.640146207995713,
+            "failed_records": 0
+          },
+          "added_lines": {
+            "case_precision": 0.6666666666666666,
+            "case_recall": 0.75,
+            "records_to_review": 11,
+            "seconds": 1.1696028329897672,
+            "failed_records": 0
+          },
+          "diff_hunks": {
+            "case_precision": 0.8,
+            "case_recall": 1.0,
+            "records_to_review": 10,
+            "seconds": 2.164185790985357,
+            "failed_records": 0
+          },
+          "function_lines": {
+            "case_precision": 0.75,
+            "case_recall": 0.9,
+            "records_to_review": 17,
+            "seconds": 6.480660957982764,
+            "failed_records": 0
+          },
+          "function_line_context": {
+            "case_precision": 0.9090909090909091,
+            "case_recall": 1.0,
+            "records_to_review": 45,
+            "seconds": 6.549337458971422,
+            "failed_records": 0
+          },
+          "functions": {
+            "case_precision": 0.9090909090909091,
+            "case_recall": 1.0,
+            "records_to_review": 11,
+            "seconds": 2.392110832966864,
+            "failed_records": 0
+          }
+        }
+      },
+      "diffusiongemma": {
+        "seconds": 112.84217220800929,
+        "modes": {
+          "diff_lines": {
+            "case_precision": 0.3333333333333333,
+            "case_recall": 0.125,
+            "records_to_review": 4,
+            "seconds": 42.22032500000205,
+            "failed_records": 0
+          },
+          "added_lines": {
+            "case_precision": 0.0,
+            "case_recall": 0.0,
+            "records_to_review": 1,
+            "seconds": 5.900204583012965,
+            "failed_records": 0
+          },
+          "diff_hunks": {
+            "case_precision": 0.7272727272727273,
+            "case_recall": 1.0,
+            "records_to_review": 11,
+            "seconds": 6.338971249992028,
+            "failed_records": 0
+          },
+          "function_lines": {
+            "case_precision": 1.0,
+            "case_recall": 0.7,
+            "records_to_review": 7,
+            "seconds": 19.561173125053756,
+            "failed_records": 0
+          },
+          "function_line_context": {
+            "case_precision": 0.7692307692307693,
+            "case_recall": 1.0,
+            "records_to_review": 46,
+            "seconds": 32.88743058295222,
+            "failed_records": 0
+          },
+          "functions": {
+            "case_precision": 0.8333333333333334,
+            "case_recall": 1.0,
+            "records_to_review": 12,
+            "seconds": 5.93406766699627,
+            "failed_records": 0
+          }
+        }
+      },
+      "laya": {
+        "seconds": 6.546600207977463,
+        "modes": {
+          "diff_lines": {
+            "case_precision": 0.42105263157894735,
+            "case_recall": 1.0,
+            "records_to_review": 36,
+            "seconds": 2.8598991250037216,
+            "failed_records": 0
+          },
+          "added_lines": {
+            "case_precision": 0.5,
+            "case_recall": 0.5,
+            "records_to_review": 8,
+            "seconds": 0.3120516249909997,
+            "failed_records": 0
+          },
+          "diff_hunks": {
+            "case_precision": 0.5454545454545454,
+            "case_recall": 0.75,
+            "records_to_review": 11,
+            "seconds": 0.6019050829927437,
+            "failed_records": 0
+          },
+          "function_lines": {
+            "case_precision": 0.5,
+            "case_recall": 1.0,
+            "records_to_review": 71,
+            "seconds": 1.0590470419847406,
+            "failed_records": 0
+          },
+          "function_line_context": {
+            "case_precision": 0.5555555555555556,
+            "case_recall": 1.0,
+            "records_to_review": 67,
+            "seconds": 1.4788285419926979,
+            "failed_records": 0
+          },
+          "functions": {
+            "case_precision": 0.5625,
+            "case_recall": 0.9,
+            "records_to_review": 16,
+            "seconds": 0.23486879101255909,
+            "failed_records": 0
+          }
+        }
+      }
+    },
+    "context": {
+      "jev": {
+        "seconds": 13.049874624994118,
+        "groups": {
+          "original": {
+            "correct_at_0.5": 150,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_start": {
+            "correct_at_0.5": 150,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_end": {
+            "correct_at_0.5": 150,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "7000_start": {
+            "correct_at_0.5": 150,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "7000_end": {
+            "correct_at_0.5": 150,
+            "decisions": 150,
+            "failed_decisions": 0
+          }
+        }
+      },
+      "diffusiongemma": {
+        "seconds": 77.03496495797299,
+        "groups": {
+          "original": {
+            "correct_at_0.5": 149,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_start": {
+            "correct_at_0.5": 149,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_end": {
+            "correct_at_0.5": 150,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "7000_start": {
+            "correct_at_0.5": 150,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "7000_end": {
+            "correct_at_0.5": 148,
+            "decisions": 150,
+            "failed_decisions": 0
+          }
+        }
+      },
+      "laya": {
+        "seconds": 10.109306833008304,
+        "groups": {
+          "original": {
+            "correct_at_0.5": 113,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_start": {
+            "correct_at_0.5": 113,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_end": {
+            "correct_at_0.5": 105,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "7000_start": {
+            "correct_at_0.5": 0,
+            "decisions": 150,
+            "failed_decisions": 150
+          },
+          "7000_end": {
+            "correct_at_0.5": 0,
+            "decisions": 150,
+            "failed_decisions": 150
+          }
+        }
+      }
+    }
+  },
+  "runs": {
+    "diffusiongemma": {
+      "spam": {
+        "report": "bench/out/local-2026-09-22/diffusiongemma-spam.json",
+        "raw_outputs": {
+          ".jsonl": "bench/out/local-2026-09-22/diffusiongemma-spam.jsonl",
+          ".log": "bench/out/local-2026-09-22/diffusiongemma-spam.log",
+          "console": "bench/out/local-2026-09-22/console-diffusiongemma-spam.log"
+        },
+        "superseded_attempts": [],
+        "failed_decisions": 0,
+        "laya_rejected": null,
+        "exit_code": 0,
+        "stats_line": "jgrep: 2,000 records, 2,000 matched; 2,000 calls, 0 cached; 224,662 tokens; $0.0000; 596.1s",
+        "started": "2026-09-22T21:13:35-04:00",
+        "finished": "2026-09-22T21:23:31-04:00",
+        "seconds": 596.2108004589682,
+        "jobs": 4,
+        "timeout": 300,
+        "calls": 2000,
+        "failed_records": 0,
+        "dollars": 0.0,
+        "laya_audit": null,
+        "probe": {
+          "provider": "diffusiongemma",
+          "url": "http://127.0.0.1:8080/v1/systemone",
+          "requested_model": "openjev-0.1",
+          "resolved_model": "openjev-0.1",
+          "p": 0.9979658174833858,
+          "cost": 0.0
+        },
+        "mode_seconds_total": null
+      },
+      "news": {
+        "report": "bench/out/local-2026-09-22/diffusiongemma-news.json",
+        "raw_outputs": {
+          ".jsonl": "bench/out/local-2026-09-22/diffusiongemma-news.jsonl",
+          ".log": "bench/out/local-2026-09-22/diffusiongemma-news.log",
+          "console": "bench/out/local-2026-09-22/console-diffusiongemma-news.log"
+        },
+        "superseded_attempts": [],
+        "failed_decisions": 0,
+        "laya_rejected": null,
+        "exit_code": 0,
+        "stats_line": "jgrep: 2,000 records, 2,000 matched; 2,000 calls, 0 cached; 426,339 tokens; $0.0000; 693.1s",
+        "started": "2026-09-22T21:23:42-04:00",
+        "finished": "2026-09-22T21:35:15-04:00",
+        "seconds": 693.1441384580103,
+        "jobs": 4,
+        "timeout": 300,
+        "calls": 2000,
+        "failed_records": 0,
+        "dollars": 0.0,
+        "laya_audit": null,
+        "probe": {
+          "provider": "diffusiongemma",
+          "url": "http://127.0.0.1:8080/v1/systemone",
+          "requested_model": "openjev-0.1",
+          "resolved_model": "openjev-0.1",
+          "p": 0.9979658174833858,
+          "cost": 0.0
+        },
+        "mode_seconds_total": null
+      },
+      "code": {
+        "report": "bench/out/local-2026-09-22/diffusiongemma-code.json",
+        "raw_outputs": {
+          ".log": "bench/out/local-2026-09-22/diffusiongemma-code.log",
+          "-review.json": "bench/out/local-2026-09-22/diffusiongemma-code-review.json",
+          "console": "bench/out/local-2026-09-22/console-diffusiongemma-code.log"
+        },
+        "superseded_attempts": [],
+        "failed_decisions": 0,
+        "laya_rejected": null,
+        "exit_code": 0,
+        "stats_line": null,
+        "started": "2026-09-22T21:35:25-04:00",
+        "finished": "2026-09-22T21:37:18-04:00",
+        "seconds": 112.98936250002589,
+        "jobs": 4,
+        "timeout": 300,
+        "calls": 441,
+        "failed_records": 0,
+        "dollars": 0.0,
+        "laya_audit": null,
+        "probe": {
+          "provider": "diffusiongemma",
+          "url": "http://127.0.0.1:8080/v1/systemone",
+          "requested_model": "openjev-0.1",
+          "resolved_model": "openjev-0.1",
+          "p": 0.9979658174833858,
+          "cost": 0.0
+        },
+        "mode_seconds_total": 112.84217220800929
+      },
+      "context": {
+        "report": "bench/out/local-2026-09-22/diffusiongemma-context.json",
+        "raw_outputs": {
+          ".jsonl": "bench/out/local-2026-09-22/diffusiongemma-context.jsonl",
+          ".log": "bench/out/local-2026-09-22/diffusiongemma-context.log",
+          "console": "bench/out/local-2026-09-22/console-diffusiongemma-context.log"
+        },
+        "superseded_attempts": [],
+        "failed_decisions": 0,
+        "laya_rejected": null,
+        "exit_code": 0,
+        "stats_line": "jgrep: 150 records, 150 matched; 150 calls, 0 cached; 101,676 tokens; $0.0000; 77.0s",
+        "started": "2026-09-22T21:37:25-04:00",
+        "finished": "2026-09-22T21:38:42-04:00",
+        "seconds": 77.03496495797299,
+        "jobs": 4,
+        "timeout": 300,
+        "calls": 150,
+        "failed_records": 0,
+        "dollars": 0.0,
+        "laya_audit": null,
+        "probe": {
+          "provider": "diffusiongemma",
+          "url": "http://127.0.0.1:8080/v1/systemone",
+          "requested_model": "openjev-0.1",
+          "resolved_model": "openjev-0.1",
+          "p": 0.9979658174833858,
+          "cost": 0.0
+        },
+        "mode_seconds_total": null
+      }
+    },
+    "laya": {
+      "spam": {
+        "report": "bench/out/local-2026-09-22/laya-spam.json",
+        "raw_outputs": {
+          ".jsonl": "bench/out/local-2026-09-22/laya-spam.jsonl",
+          ".log": "bench/out/local-2026-09-22/laya-spam.log",
+          "console": "bench/out/local-2026-09-22/console-laya-spam.log"
+        },
+        "superseded_attempts": [],
+        "failed_decisions": 0,
+        "laya_rejected": 0,
+        "exit_code": 0,
+        "stats_line": "jgrep: 2,000 records, 2,000 matched; 2,000 calls, 0 cached; 135,013 tokens; $0.0000; 46.1s",
+        "started": "2026-09-22T21:39:17-04:00",
+        "finished": "2026-09-22T21:40:03-04:00",
+        "seconds": 46.20456825004658,
+        "jobs": 4,
+        "timeout": 120,
+        "calls": 2000,
+        "failed_records": 0,
+        "dollars": 0.0,
+        "laya_audit": {
+          "audit_file": "laya-audit.jsonl",
+          "first_line": 3541,
+          "last_line": 5540,
+          "requests": 2000,
+          "status": {
+            "ok": 2000
+          },
+          "rejected": 0,
+          "truncated_questions": 0,
+          "max_state_tokens": 243,
+          "only_ours": true
+        },
+        "probe": {
+          "provider": "laya",
+          "url": "http://127.0.0.1:8081/v1/systemone",
+          "requested_model": "laya-421m",
+          "resolved_model": "laya-421m",
+          "p": 0.8381,
+          "cost": 0.0
+        },
+        "mode_seconds_total": null
+      },
+      "news": {
+        "report": "bench/out/local-2026-09-22/laya-news.json",
+        "raw_outputs": {
+          ".jsonl": "bench/out/local-2026-09-22/laya-news.jsonl",
+          ".log": "bench/out/local-2026-09-22/laya-news.log",
+          "console": "bench/out/local-2026-09-22/console-laya-news.log"
+        },
+        "superseded_attempts": [],
+        "failed_decisions": 0,
+        "laya_rejected": 0,
+        "exit_code": 0,
+        "stats_line": "jgrep: 2,000 records, 2,000 matched; 2,000 calls, 0 cached; 748,056 tokens; $0.0000; 157.4s",
+        "started": "2026-09-22T21:40:08-04:00",
+        "finished": "2026-09-22T21:42:45-04:00",
+        "seconds": 157.46748862497043,
+        "jobs": 4,
+        "timeout": 120,
+        "calls": 2000,
+        "failed_records": 0,
+        "dollars": 0.0,
+        "laya_audit": {
+          "audit_file": "laya-audit.jsonl",
+          "first_line": 5542,
+          "last_line": 7541,
+          "requests": 2000,
+          "status": {
+            "ok": 2000
+          },
+          "rejected": 0,
+          "truncated_questions": 0,
+          "max_state_tokens": 226,
+          "only_ours": true
+        },
+        "probe": {
+          "provider": "laya",
+          "url": "http://127.0.0.1:8081/v1/systemone",
+          "requested_model": "laya-421m",
+          "resolved_model": "laya-421m",
+          "p": 0.8381,
+          "cost": 0.0
+        },
+        "mode_seconds_total": null
+      },
+      "code": {
+        "report": "bench/out/local-2026-09-22/laya-code.json",
+        "raw_outputs": {
+          ".log": "bench/out/local-2026-09-22/laya-code.log",
+          "-review.json": "bench/out/local-2026-09-22/laya-code-review.json",
+          "console": "bench/out/local-2026-09-22/console-laya-code.log"
+        },
+        "superseded_attempts": [],
+        "failed_decisions": 0,
+        "laya_rejected": 0,
+        "exit_code": 0,
+        "stats_line": null,
+        "started": "2026-09-22T21:42:51-04:00",
+        "finished": "2026-09-22T21:42:58-04:00",
+        "seconds": 6.679259083000943,
+        "jobs": 4,
+        "timeout": 120,
+        "calls": 441,
+        "failed_records": 0,
+        "dollars": 0.0,
+        "laya_audit": {
+          "audit_file": "laya-audit.jsonl",
+          "first_line": 7543,
+          "last_line": 7983,
+          "requests": 441,
+          "status": {
+            "ok": 441
+          },
+          "rejected": 0,
+          "truncated_questions": 0,
+          "max_state_tokens": 92,
+          "only_ours": true
+        },
+        "probe": {
+          "provider": "laya",
+          "url": "http://127.0.0.1:8081/v1/systemone",
+          "requested_model": "laya-421m",
+          "resolved_model": "laya-421m",
+          "p": 0.8381,
+          "cost": 0.0
+        },
+        "mode_seconds_total": 6.546600207977463
+      },
+      "context": {
+        "report": "bench/out/local-2026-09-22/laya-context.json",
+        "raw_outputs": {
+          ".jsonl": "bench/out/local-2026-09-22/laya-context.jsonl",
+          ".log": "bench/out/local-2026-09-22/laya-context.log",
+          "console": "bench/out/local-2026-09-22/console-laya-context.log"
+        },
+        "superseded_attempts": [],
+        "failed_decisions": 300,
+        "laya_rejected": 60,
+        "exit_code": 2,
+        "stats_line": "jgrep: 150 records, 90 matched; 90 calls, 0 cached; 124,360 tokens; $0.0000; 10.0s",
+        "started": "2026-09-22T21:43:03-04:00",
+        "finished": "2026-09-22T21:43:13-04:00",
+        "seconds": 10.109306833008304,
+        "jobs": 4,
+        "timeout": 120,
+        "calls": 90,
+        "failed_records": 60,
+        "dollars": 0.0,
+        "laya_audit": {
+          "audit_file": "laya-audit.jsonl",
+          "first_line": 7985,
+          "last_line": 8134,
+          "requests": 150,
+          "status": {
+            "ok": 90,
+            "context_rejected": 60
+          },
+          "rejected": 60,
+          "truncated_questions": 0,
+          "max_state_tokens": 354,
+          "only_ours": true
+        },
+        "probe": {
+          "provider": "laya",
+          "url": "http://127.0.0.1:8081/v1/systemone",
+          "requested_model": "laya-421m",
+          "resolved_model": "laya-421m",
+          "p": 0.8381,
+          "cost": 0.0
+        },
+        "mode_seconds_total": null
+      }
+    }
+  },
+  "vs_2026_09_21": {
+    "diffusiongemma": {
+      "spam": {
+        "compared_records": 2000,
+        "identical_records": 2000,
+        "changed_records": 0,
+        "flipped_at_0.5": 0,
+        "flipped_at_0.9": 0,
+        "max_abs_difference": 0.0,
+        "answered_before_not_now": [],
+        "answered_now_not_before": []
+      },
+      "news": {
+        "compared_records": 2000,
+        "identical_records": 2000,
+        "changed_records": 0,
+        "flipped_at_0.5": 0,
+        "flipped_at_0.9": 0,
+        "max_abs_difference": 0.0,
+        "answered_before_not_now": [],
+        "answered_now_not_before": []
+      },
+      "code": {
+        "compared_records": 482,
+        "identical_records": 482,
+        "changed_records": 0,
+        "flipped_at_0.5": 0,
+        "flipped_at_0.9": 0,
+        "max_abs_difference": 0.0,
+        "answered_before_not_now": [],
+        "answered_now_not_before": []
+      },
+      "context": {
+        "compared_records": 150,
+        "identical_records": 150,
+        "changed_records": 0,
+        "flipped_at_0.5": 0,
+        "flipped_at_0.9": 0,
+        "max_abs_difference": 0.0,
+        "answered_before_not_now": [],
+        "answered_now_not_before": []
+      }
+    },
+    "laya": {
+      "spam": {
+        "compared_records": 2000,
+        "identical_records": 2000,
+        "changed_records": 0,
+        "flipped_at_0.5": 0,
+        "flipped_at_0.9": 0,
+        "max_abs_difference": 0.0,
+        "answered_before_not_now": [],
+        "answered_now_not_before": []
+      },
+      "news": {
+        "compared_records": 2000,
+        "identical_records": 2000,
+        "changed_records": 0,
+        "flipped_at_0.5": 0,
+        "flipped_at_0.9": 0,
+        "max_abs_difference": 0.0,
+        "answered_before_not_now": [],
+        "answered_now_not_before": []
+      },
+      "code": {
+        "compared_records": 482,
+        "identical_records": 482,
+        "changed_records": 0,
+        "flipped_at_0.5": 0,
+        "flipped_at_0.9": 0,
+        "max_abs_difference": 0.0,
+        "answered_before_not_now": [],
+        "answered_now_not_before": []
+      },
+      "context": {
+        "compared_records": 90,
+        "identical_records": 90,
+        "changed_records": 0,
+        "flipped_at_0.5": 0,
+        "flipped_at_0.9": 0,
+        "max_abs_difference": 0.0,
+        "answered_before_not_now": [
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108,
+          109,
+          110,
+          111,
+          112,
+          113,
+          114,
+          115,
+          116,
+          117,
+          118,
+          119,
+          120,
+          121,
+          122,
+          123,
+          124,
+          125,
+          126,
+          127,
+          128,
+          129,
+          130,
+          131,
+          132,
+          133,
+          134,
+          135,
+          136,
+          137,
+          138,
+          139,
+          140,
+          141,
+          142,
+          143,
+          144,
+          145,
+          146,
+          147,
+          148,
+          149,
+          150
+        ],
+        "answered_now_not_before": []
+      }
+    }
+  },
+  "sept21_local": {
+    "diffusiongemma": {
+      "spam": {
+        "seconds": 547.9712808339973,
+        "n": 2000,
+        "at_0.5": {
+          "precision": 0.8044871794871795,
+          "recall": 0.9365671641791045,
+          "f1": 0.8655172413793103,
+          "tp": 251,
+          "fp": 61,
+          "fn": 17,
+          "tn": 1671
+        },
+        "at_0.9": {
+          "precision": 0.8875968992248062,
+          "recall": 0.8544776119402985,
+          "f1": 0.870722433460076,
+          "tp": 229,
+          "fp": 29,
+          "fn": 39,
+          "tn": 1703
+        },
+        "sweep": [
+          {
+            "precision": 0.6573604060913706,
+            "recall": 0.9664179104477612,
+            "f1": 0.7824773413897281,
+            "tp": 259,
+            "fp": 135,
+            "fn": 9,
+            "tn": 1597,
+            "threshold": 0.1
+          },
+          {
+            "precision": 0.7604790419161677,
+            "recall": 0.9477611940298507,
+            "f1": 0.8438538205980066,
+            "tp": 254,
+            "fp": 80,
+            "fn": 14,
+            "tn": 1652,
+            "threshold": 0.3
+          },
+          {
+            "precision": 0.8044871794871795,
+            "recall": 0.9365671641791045,
+            "f1": 0.8655172413793103,
+            "tp": 251,
+            "fp": 61,
+            "fn": 17,
+            "tn": 1671,
+            "threshold": 0.5
+          },
+          {
+            "precision": 0.839041095890411,
+            "recall": 0.914179104477612,
+            "f1": 0.875,
+            "tp": 245,
+            "fp": 47,
+            "fn": 23,
+            "tn": 1685,
+            "threshold": 0.7
+          },
+          {
+            "precision": 0.8875968992248062,
+            "recall": 0.8544776119402985,
+            "f1": 0.870722433460076,
+            "tp": 229,
+            "fp": 29,
+            "fn": 39,
+            "tn": 1703,
+            "threshold": 0.9
+          },
+          {
+            "precision": 0.9466666666666667,
+            "recall": 0.7947761194029851,
+            "f1": 0.8640973630831643,
+            "tp": 213,
+            "fp": 12,
+            "fn": 55,
+            "tn": 1720,
+            "threshold": 0.95
+          },
+          {
+            "precision": 1.0,
+            "recall": 0.582089552238806,
+            "f1": 0.7358490566037735,
+            "tp": 156,
+            "fp": 0,
+            "fn": 112,
+            "tn": 1732,
+            "threshold": 0.99
+          }
+        ],
+        "brier": 0.03102067824,
+        "ece_10_bins": 0.0267844,
+        "confident_errors": 38
+      },
+      "news": {
+        "seconds": 680.5618308329722,
+        "top1_accuracy": 0.8735,
+        "top1_ci95": [
+          0.8582120203166588,
+          0.8873559453642452
+        ],
+        "macro_f1_at_0.5": 0.7997808337176865,
+        "macro_f1_at_0.9": 0.8304002696537969,
+        "per_class": {
+          "news about world affairs, politics or conflict": {
+            "f1_at_0.5": 0.7177914110429447,
+            "f1_at_0.9": 0.7993079584775087,
+            "precision_at_0.5": 0.582089552238806,
+            "recall_at_0.5": 0.936
+          },
+          "news about sports": {
+            "f1_at_0.5": 0.9601554907677357,
+            "f1_at_0.9": 0.9655850540806293,
+            "precision_at_0.5": 0.9338374291115312,
+            "recall_at_0.5": 0.988
+          },
+          "news about business, markets or the economy": {
+            "f1_at_0.5": 0.7072633895818048,
+            "f1_at_0.9": 0.7331786542923434,
+            "precision_at_0.5": 0.5585168018539977,
+            "recall_at_0.5": 0.964
+          },
+          "news about science or technology": {
+            "f1_at_0.5": 0.8139130434782609,
+            "f1_at_0.9": 0.8235294117647058,
+            "precision_at_0.5": 0.72,
+            "recall_at_0.5": 0.936
+          }
+        }
+      },
+      "code": {
+        "seconds": 111.17527337605134,
+        "modes": {
+          "diff_lines": {
+            "case_precision": 0.3333333333333333,
+            "case_recall": 0.125,
+            "records_to_review": 4,
+            "seconds": 44.047542250016704,
+            "failed_records": 0
+          },
+          "added_lines": {
+            "case_precision": 0.0,
+            "case_recall": 0.0,
+            "records_to_review": 1,
+            "seconds": 6.344651207968127,
+            "failed_records": 0
+          },
+          "diff_hunks": {
+            "case_precision": 0.7272727272727273,
+            "case_recall": 1.0,
+            "records_to_review": 11,
+            "seconds": 6.438180541968904,
+            "failed_records": 0
+          },
+          "function_lines": {
+            "case_precision": 1.0,
+            "case_recall": 0.7,
+            "records_to_review": 7,
+            "seconds": 20.13230525003746,
+            "failed_records": 0
+          },
+          "function_line_context": {
+            "case_precision": 0.7692307692307693,
+            "case_recall": 1.0,
+            "records_to_review": 46,
+            "seconds": 28.56275241705589,
+            "failed_records": 0
+          },
+          "functions": {
+            "case_precision": 0.8333333333333334,
+            "case_recall": 1.0,
+            "records_to_review": 12,
+            "seconds": 5.649841709004249,
+            "failed_records": 0
+          }
+        }
+      },
+      "context": {
+        "seconds": 77.09214879199862,
+        "groups": {
+          "original": {
+            "correct_at_0.5": 149,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_start": {
+            "correct_at_0.5": 149,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_end": {
+            "correct_at_0.5": 150,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "7000_start": {
+            "correct_at_0.5": 150,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "7000_end": {
+            "correct_at_0.5": 148,
+            "decisions": 150,
+            "failed_decisions": 0
+          }
+        }
+      }
+    },
+    "laya": {
+      "spam": {
+        "seconds": 22.863112166000064,
+        "n": 2000,
+        "at_0.5": {
+          "precision": 0.530938123752495,
+          "recall": 0.9925373134328358,
+          "f1": 0.6918075422626788,
+          "tp": 266,
+          "fp": 235,
+          "fn": 2,
+          "tn": 1497
+        },
+        "at_0.9": {
+          "precision": 0.7898089171974523,
+          "recall": 0.9253731343283582,
+          "f1": 0.852233676975945,
+          "tp": 248,
+          "fp": 66,
+          "fn": 20,
+          "tn": 1666
+        },
+        "sweep": [
+          {
+            "precision": 0.28525641025641024,
+            "recall": 0.996268656716418,
+            "f1": 0.4435215946843854,
+            "tp": 267,
+            "fp": 669,
+            "fn": 1,
+            "tn": 1063,
+            "threshold": 0.1
+          },
+          {
+            "precision": 0.445,
+            "recall": 0.996268656716418,
+            "f1": 0.6152073732718893,
+            "tp": 267,
+            "fp": 333,
+            "fn": 1,
+            "tn": 1399,
+            "threshold": 0.3
+          },
+          {
+            "precision": 0.530938123752495,
+            "recall": 0.9925373134328358,
+            "f1": 0.6918075422626788,
+            "tp": 266,
+            "fp": 235,
+            "fn": 2,
+            "tn": 1497,
+            "threshold": 0.5
+          },
+          {
+            "precision": 0.6161137440758294,
+            "recall": 0.9701492537313433,
+            "f1": 0.7536231884057971,
+            "tp": 260,
+            "fp": 162,
+            "fn": 8,
+            "tn": 1570,
+            "threshold": 0.7
+          },
+          {
+            "precision": 0.7898089171974523,
+            "recall": 0.9253731343283582,
+            "f1": 0.852233676975945,
+            "tp": 248,
+            "fp": 66,
+            "fn": 20,
+            "tn": 1666,
+            "threshold": 0.9
+          },
+          {
+            "precision": 0.8391608391608392,
+            "recall": 0.8955223880597015,
+            "f1": 0.8664259927797834,
+            "tp": 240,
+            "fp": 46,
+            "fn": 28,
+            "tn": 1686,
+            "threshold": 0.95
+          },
+          {
+            "precision": 0.8932806324110671,
+            "recall": 0.8432835820895522,
+            "f1": 0.8675623800383877,
+            "tp": 226,
+            "fp": 27,
+            "fn": 42,
+            "tn": 1705,
+            "threshold": 0.99
+          }
+        ],
+        "brier": 0.09108465793000001,
+        "ece_10_bins": 0.14897950000000001,
+        "confident_errors": 67
+      },
+      "news": {
+        "seconds": 70.17627541697584,
+        "top1_accuracy": 0.9245,
+        "top1_ci95": [
+          0.9120900214010068,
+          0.9352824054572093
+        ],
+        "macro_f1_at_0.5": 0.8785864701712187,
+        "macro_f1_at_0.9": 0.3421585489869115,
+        "per_class": {
+          "news about world affairs, politics or conflict": {
+            "f1_at_0.5": 0.8716356107660456,
+            "f1_at_0.9": 0.12030075187969924,
+            "precision_at_0.5": 0.9034334763948498,
+            "recall_at_0.5": 0.842
+          },
+          "news about sports": {
+            "f1_at_0.5": 0.944558521560575,
+            "f1_at_0.9": 0.5433526011560693,
+            "precision_at_0.5": 0.9704641350210971,
+            "recall_at_0.5": 0.92
+          },
+          "news about business, markets or the economy": {
+            "f1_at_0.5": 0.8166351606805293,
+            "f1_at_0.9": 0.4827586206896552,
+            "precision_at_0.5": 0.7741935483870968,
+            "recall_at_0.5": 0.864
+          },
+          "news about science or technology": {
+            "f1_at_0.5": 0.8815165876777251,
+            "f1_at_0.9": 0.2222222222222222,
+            "precision_at_0.5": 0.8378378378378378,
+            "recall_at_0.5": 0.93
+          }
+        }
+      },
+      "code": {
+        "seconds": 6.506106709886808,
+        "modes": {
+          "diff_lines": {
+            "case_precision": 0.42105263157894735,
+            "case_recall": 1.0,
+            "records_to_review": 36,
+            "seconds": 2.482656583946664,
+            "failed_records": 0
+          },
+          "added_lines": {
+            "case_precision": 0.5,
+            "case_recall": 0.5,
+            "records_to_review": 8,
+            "seconds": 0.5152680000173859,
+            "failed_records": 0
+          },
+          "diff_hunks": {
+            "case_precision": 0.5454545454545454,
+            "case_recall": 0.75,
+            "records_to_review": 11,
+            "seconds": 0.4736979170120321,
+            "failed_records": 0
+          },
+          "function_lines": {
+            "case_precision": 0.5,
+            "case_recall": 1.0,
+            "records_to_review": 71,
+            "seconds": 1.241188499960117,
+            "failed_records": 0
+          },
+          "function_line_context": {
+            "case_precision": 0.5555555555555556,
+            "case_recall": 1.0,
+            "records_to_review": 67,
+            "seconds": 1.5192005839780904,
+            "failed_records": 0
+          },
+          "functions": {
+            "case_precision": 0.5625,
+            "case_recall": 0.9,
+            "records_to_review": 16,
+            "seconds": 0.27409512497251853,
+            "failed_records": 0
+          }
+        }
+      },
+      "context": {
+        "seconds": 18.48904291697545,
+        "groups": {
+          "original": {
+            "correct_at_0.5": 113,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_start": {
+            "correct_at_0.5": 113,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "2000_end": {
+            "correct_at_0.5": 105,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "7000_start": {
+            "correct_at_0.5": 115,
+            "decisions": 150,
+            "failed_decisions": 0
+          },
+          "7000_end": {
+            "correct_at_0.5": 100,
+            "decisions": 150,
+            "failed_decisions": 0
+          }
+        }
+      }
+    }
+  },
+  "jev_full_datasets": {
+    "note": "Jev 1.13 via OpenRouter on 2026-09-18 over the whole datasets (bench/accuracy.py); not like for like with the 2,000-record samples above, and no local model was run on them.",
+    "spam": {
+      "lines": 5574,
+      "at_0.5": {
+        "precision": 0.8727,
+        "recall": 0.9545,
+        "f1": 0.9118,
+        "accuracy": 0.9752
+      },
+      "at_0.9": {
+        "precision": 0.9812,
+        "recall": 0.838,
+        "f1": 0.904,
+        "accuracy": 0.9761
+      }
+    },
+    "news": {
+      "lines": 7600,
+      "top1_accuracy": 0.8662,
+      "macro_f1": 0.8318
+    }
+  },
+  "notes": [
+    "Local runs: real jgrep CLI, answer cache off, empty XDG_CACHE_HOME, one model and one benchmark at a time.",
+    "Seconds are one warm wall-clock run including CLI start-up; code is the sum of the six modes' scan times.",
+    "A Laya refusal (HTTP 422, state over its 512-token window) is a failed decision, not a negative answer.",
+    "On September 21 the Laya server allowed audited truncation; today's server refuses instead, so context records that were cropped then are failures now.",
+    "Local API fees are $0; hardware and electricity are not priced.",
+    "Concurrency 4 requests in flight for both servers; deadline 300 s for DiffusionGemma (120 s on September 21) and 120 s for Laya. No deadline errors, so nothing was lowered. During each run the other server was loaded but idle.",
+    "Wall-clock is not like for like against Jev: hosted Jev ran at jobs 8-16 over the network.",
+    "Every local decision today is bit-identical to the same model's September 21 output (see vs_2026_09_21); the only difference is Laya context lines 91-150, refused today (HTTP 422) and truncated then.",
+    "Laya spam and news took 2.0x and 2.2x their September 21 time. Its audit log shows the median per-request server time unchanged (spam 10.5 ms vs 10.2 ms, news 28.3 ms vs 28.9 ms); the excess is a tail of stalled requests (spam 83 over 0.1 s, up to 1.3 s; news 138, up to 2.6 s; September 21: 2 and 30). Cause not verified; both servers run at nice 5 on a desktop in use. See bench/out/local-2026-09-22/RESULTS-NOTES.md."
+  ]
+}

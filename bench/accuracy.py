@@ -26,7 +26,8 @@ from pathlib import Path
 
 import httpx
 
-from jgrep.core import BACKENDS
+from jevkit_runtime import resolve
+from jgrep.core import PROVIDERS
 
 OUT = Path(__file__).parent / "out"
 SPAM_URL = "https://archive.ics.uci.edu/static/public/228/sms+spam+collection.zip"  # UCI, CC BY 4.0
@@ -174,7 +175,7 @@ def llm(n: int, models: list[str], jobs: int) -> None:
     p = {r["line"]: r["p"] for r in rows}
     result = {"dataset": f"UCI SMS Spam Collection, every {step}th message", "lines": n, "positives": sum(truth),
               "concurrency": jobs, "jgrep": prf([p.get(i + 1, 0.0) >= 0.5 for i in range(n)], truth) | stats, "chat_models": {}}
-    key = BACKENDS["openrouter"].key()
+    key = resolve(PROVIDERS, "openrouter").key
     for model in models:
         answers, run = asyncio.run(chat(model, sub_lines, key, jobs))
         result["chat_models"][model] = prf([a is True for a in answers], truth) | run

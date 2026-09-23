@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Compare DiffusionGemma and Laya with Jev 1.13 on jgrep's benchmarks, in
+  `docs/benchmarks/local-models-2026-09-22.md` and its JSON, summarized in the README.
+- Add `bench/backend_eval.py`, which runs and scores a local server, and `bench/context_eval.py`,
+  the length and evidence-position test. `bench/code_review.py` now requires `--api` and `--model`.
+
 ## 0.4.0
 
 - Add `--api diffusiongemma` and `--api laya` for System One servers running on your own machine,
