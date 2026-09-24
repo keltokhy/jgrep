@@ -21,6 +21,7 @@ from test_cli import env, jgrep, write  # noqa: F401  (env is the isolation fixt
 @pytest.mark.parametrize("api,url,model", [
     ("diffusiongemma", "http://127.0.0.1:8080/v1/systemone", "openjev-latest"),
     ("laya", "http://127.0.0.1:8081/v1/systemone", "laya-421m"),
+    ("gliner", "http://127.0.0.1:8082/v1/systemone", "gliner2.5-decide"),
 ])
 def test_local_cli_needs_no_key_and_does_not_charge_jev_prices(monkeypatch, tmp_path, api, url, model):
     monkeypatch.delenv("OPENROUTER_API_KEY")
@@ -83,7 +84,7 @@ def test_custom_server_auth_model_and_cache(monkeypatch, tmp_path, source):
     assert jgrep(args, fake=answer)[0] == 0 and len(seen) == 2
 
 
-@pytest.mark.parametrize("api", ["diffusiongemma", "laya"])
+@pytest.mark.parametrize("api", ["diffusiongemma", "laya", "gliner"])
 def test_local_server_is_never_selected_implicitly(monkeypatch, tmp_path, api):
     monkeypatch.setenv(f"JEV_{api.upper()}_API_KEY", "optional-key")
     monkeypatch.setenv(f"JEV_{api.upper()}_URL", "https://local.example/v1/systemone")
