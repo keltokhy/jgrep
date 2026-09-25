@@ -1,18 +1,16 @@
-# Request compatibility reference
+# Request reference
 
-`main_requests.json` captures 21 request scenarios from local `origin/main` at
-`fdceb6bdf79165a133667b8e57f3b7244545f0a2`. Requests used `httpx.MockTransport`,
-the fake key `test-key`, an isolated configuration/cache, explicit `--api openrouter`,
-`--no-cache`, and `-j 1`. No provider was contacted.
+`requests.json` holds 21 request scenarios: each one's decoded bodies, SHA-256 hashes of the exact
+HTTP request bytes, and runtime-0.4 answer keys, with the three estimate scenarios' record and call
+counts and bytes plus request overhead. Requests used `httpx.MockTransport`, the fake key `test-key`,
+an isolated configuration and cache, explicit `--api openrouter`, `--no-cache` and `-j 1`. No
+provider was contacted, and the fixtures contain only synthetic source text.
 
-`test_request_compatibility.capture` builds each scenario and records the fake transport's
-decoded bodies, SHA-256 hashes of the exact HTTP request bytes, and shared-runtime v2 answer keys.
-The three estimate scenarios also retain record/call counts and bytes plus request overhead.
-Export scenarios must send no requests. The fixtures contain only synthetic source text.
+The file was regenerated for jevkit-runtime 0.4 against the previous reference, captured from
+`origin/main` at `fdceb6bdf79165a133667b8e57f3b7244545f0a2`, with a guard that failed unless every
+body was identical apart from `model`, which moved from the `~typesafe/jev-latest` alias to the
+pinned `typesafe/jev-1.13`, record and call counts were unchanged, and estimated bytes moved only by
+the model string's length per call. The answer keys changed as runtime 0.4 intends (v3).
 
-To audit the reference, extract that commit's `src/` with local `git archive` into a temporary
-directory, place its `src/` before the current `tests/` on `sys.path` in a fresh Python process,
-and call `capture(temp_directory, name)` for each entry in `CASES`. This uses the same fake
-transport helper against the reference package, without switching the checkout or fetching Git
-objects. Compare the request bodies and wire hashes to this file. The answer keys are then derived
-from those frozen bodies with `jevkit_runtime.answer_key`; they intentionally changed in runtime 0.2.
+`test_request_compatibility.capture` builds each scenario; a change to what jgrep sends shows up
+here as a failed comparison.

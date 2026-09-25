@@ -42,7 +42,7 @@ not promise exact billing or predict when match-count limits would stop a paid r
 
 Filtering sends selected units to the configured TypeSafe, OpenRouter or gateway endpoint.
 Credentials use provider environment variables or files under `~/.config/jev`; see the README.
-Do not print keys. The default dollar budget is $1 and caching preserves exact state/question pairs.
+Do not print keys. The default dollar budget is $1 (`--budget none` for no limit, `JEV_BUDGET` for all tools) and caching preserves exact state/question pairs.
 
 C functions that contain a parse error, usually from a macro or `#if`, and macro-headed bodies
 such as `TEST(Suite, Name) { ... }` are skipped and reported by covered line range in an error

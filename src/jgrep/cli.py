@@ -20,11 +20,23 @@ import sys
 import threading
 import time
 from collections import deque
-from concurrent.futures import CancelledError
 from dataclasses import replace
 
+from jevkit_runtime import Client, JevBudgetExceeded, JevError, JevFatal, Noul, Run
+from jevkit_runtime.cli import (
+    Parser,
+    UsageError,
+    add_runtime_args,
+    budget_from_args,
+    providers_help,
+    runtime_from_args,
+    show_stats,
+    stats_line,
+)
+from jevkit_runtime.run import warnings as run_warnings
+from jevkit_runtime.stream import ordered_map
+
 from . import __version__
-from jevkit_runtime import AnswerStore, Client, JevError, JevFatal, Settings, resolve
 from .core import PROVIDERS
 from .diff_context import describe, tally
 from .inputs import STDIN, Record, discover, records
@@ -34,9 +46,9 @@ DEFAULT_BUDGET = 1.0  # dollars; a grep-shaped command that bills per line needs
 
 
 def question(description: str, context: bool = False, diff: bool = False, function: bool = False,
-             working_tree: bool = False) -> dict:
+             working_tree: bool = False) -> Noul:
     if diff:
-        return {"type": "noul", "instructions":
+        return Noul(
                 f'The change in this unified diff fits this description: "{description}". '
                 "Compare the before and after code together: '-' lines are removed, '+' lines are added, "
                 "and space-prefixed lines are unchanged context. Judge the change, not merely words or "
@@ -45,13 +57,13 @@ def question(description: str, context: bool = False, diff: bool = False, functi
                    + ("as it reads in the working tree" if working_tree else "as it reads after the change")
                    + ", only so the change can be read in context; that function is not itself being "
                    "judged. " if function else "")
-                + "The hunk may omit other parts of the program; do not assume their behavior."}
+                + "The hunk may omit other parts of the program; do not assume their behavior.")
     if context:
-        return {"type": "noul", "instructions":
+        return Noul(
                 f'The lines marked ">" fit this description: "{description}". The other lines are the '
                 "surrounding text, shown only so the marked lines can be read in context; they are not "
-                "themselves being judged."}
-    return {"type": "noul", "instructions": f'The text fits this description: "{description}"'}
+                "themselves being judged.")
+    return Noul(f'The text fits this description: "{description}"')
 
 
 def ask(descriptions: list[str], args) -> tuple[dict, dict]:
@@ -63,7 +75,7 @@ def ask(descriptions: list[str], args) -> tuple[dict, dict]:
 
 
 def parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(
+    ap = Parser(
         prog="jgrep", formatter_class=argparse.RawDescriptionHelpFormatter,
         usage="jgrep [options] DESCRIPTION [FILE ...]",
         description="Print lines that fit a plain-English description, as judged by TypeSafe's Jev model.",
@@ -72,11 +84,7 @@ def parser() -> argparse.ArgumentParser:
                '  jgrep -o "about heat or hot water" complaints.txt | sort -rn | head\n'
                '  jgrep -v -p 0.2 "spam" inbox.txt\n'
                '  jgrep --whole "uses a bunching estimator" abstracts/*.txt\n\n'
-               "Jev is reached through TypeSafe's API (TYPESAFE_API_KEY), OpenRouter (OPENROUTER_API_KEY) or a\n"
-               "System One gateway of your own (JEV_GATEWAY_URL and JEV_GATEWAY_API_KEY).\n"
-               f"Keys can also live in {Settings.from_env().config_dir}/typesafe.key, openrouter.key or gateway.key.\n"
-               "Local servers: --api diffusiongemma (OpenJev, JEV_DIFFUSIONGEMMA_URL), --api laya (laya-mlx, JEV_LAYA_URL)\n"
-               "or --api gliner (GLiNER2.5-Decide, JEV_GLINER_URL), never chosen automatically, no key needed, $0 API fees; see the jevkit-runtime docs to run them.")
+               + providers_help(PROVIDERS))
     ap.add_argument("args", nargs="*", help=argparse.SUPPRESS)
     ap.add_argument("-e", dest="descriptions", action="append", metavar="DESCRIPTION",
                     help="a description; repeat for several, which are judged in one call (a line matches if any fits)")
@@ -119,18 +127,11 @@ def parser() -> argparse.ArgumentParser:
                     help="also show Jev the N records either side of each one; the decision, and what is "
                          "printed, is still one record at a time")
     ap.add_argument("--unordered", action="store_true", help="print matches as answers arrive, not in input order")
-    ap.add_argument("-j", "--concurrency", type=int, default=32, metavar="N", help="calls in flight (default 32)")
-    ap.add_argument("--timeout", type=float, default=15.0, metavar="SECONDS",
-                    help="give up on a line after this long, retries included (default 15)")
-    ap.add_argument("--budget", type=float, default=None, metavar="DOLLARS",
-                    help="stop once this much has been spent (default 1.00, or $JGREP_BUDGET; 0 for no limit)")
     ap.add_argument("--max-chars", type=int, default=8000, metavar="N",
                     help="judge only the first N characters of a record (default 8000)")
-    ap.add_argument("--no-cache", action="store_true", help="do not read or write the answer cache")
-    ap.add_argument("--api", choices=list(PROVIDERS), help="which API to call (default: whichever has a key)")
-    ap.add_argument("--model", metavar="ID", help="model ID to request (default: the API's latest Jev)")
-    ap.add_argument("--stats", action=argparse.BooleanOptionalAction, default=None,
-                    help="print calls, tokens and cost to stderr at the end (default: when stderr is a terminal)")
+    ap.add_argument("--record", metavar="FILE",
+                    help="write the run's record to FILE: what was asked, of which model, at what cost")
+    add_runtime_args(ap, PROVIDERS, default_budget=DEFAULT_BUDGET)
     ap.add_argument("--version", action="version", version=f"jgrep {__version__}")
     return ap
 
@@ -231,7 +232,7 @@ async def run(args, descriptions: list[str], files: list[str], jev: Client, out,
     finally:
         await jev.close()
     records = f"{seen:,} records" + (f" ({with_function:,} with function context)" if args.function_context else "")
-    args.summary = f"{records}, {matched:,} matched; {jev.meter.summary()}"
+    args.summary = f"{records}, {matched:,} matched"
     if args.quiet and matched:
         return 0
     return 2 if errors else 0 if matched else 1
@@ -246,64 +247,40 @@ def print_counts(args, files: list[str], counts: dict[int, int], out, show_file:
 
 
 async def scan(args, descriptions: list[str], files: list[str], jev: Client, out, err, show_file: bool) -> dict:
-    loop = asyncio.get_running_loop()
+    """Judge one group of files as the runtime's stream: read on a thread, judged -j at a time, in order."""
     questions, function_questions = ask(descriptions, args)
-    queue: asyncio.Queue = asyncio.Queue(maxsize=args.concurrency)
-    # A slot covers both an active request and its result waiting for ordered output.
-    sem = asyncio.Semaphore(args.concurrency)
-    stop, halt = threading.Event(), asyncio.Event()
-    finished: dict[int, tuple] = {}
-    tasks: set[asyncio.Task] = set()
     counts: dict[int, int] = {}
     headers: set[int] = set()
-    s = {"next": 0, "seen": 0, "matched": 0, "errors": 0, "fatal": None,
-         "over_budget": False, "broken_pipe": False, "truncated": 0, "function_context": {}}
-    feeding = {"put": None}
+    s = {"seen": 0, "matched": 0, "errors": 0, "fatal": None, "over_budget": False, "broken_pipe": False,
+         "truncated": 0, "function_context": {}}
 
-    def feed() -> None:
-        def enqueue(item) -> bool:
-            if stop.is_set():
-                return False
-            put = asyncio.run_coroutine_threadsafe(queue.put(item), loop)
-            feeding["put"] = put
-            # Stop may race with creation of the pending put. Either the consumer
-            # or this check must cancel it so a full queue cannot strand a reader.
-            if stop.is_set():
-                put.cancel()
-            put.result()
-            return not stop.is_set()
+    def read(stop):
+        stream = records(files, args, stop)
+        return contextual(stream, args.context) if args.context else stream
 
-        try:
-            stream = records(files, args, stop)
-            for item in contextual(stream, args.context) if args.context else stream:
-                if not enqueue(item):
-                    return
-        except Exception as e:
-            if not stop.is_set():
-                try:
-                    enqueue(f"input reader: {type(e).__name__}: {e}")
-                except (CancelledError, RuntimeError):
-                    pass
-        finally:
-            # Even an unexpected reader failure must wake the consumer.
-            if not stop.is_set():
-                try:
-                    enqueue(None)
-                except (CancelledError, RuntimeError):
-                    pass
+    async def judge(rec):
+        if isinstance(rec, str):  # a file that could not be read, reported in its place
+            return rec
+        if not (args.chunks or args.diff or args.functions) and any(
+                len(t) > args.max_chars for t in (rec.text, *rec.before, *rec.after)):
+            s["truncated"] += 1
+        if not rec.text.strip():
+            return 0.0, [0.0] * len(questions)
+        # A hunk without context is asked exactly what plain --diff asks, and shares its cache.
+        asked = function_questions[bool(rec.unit["commit"])] if rec.context else questions
+        answers = await jev.ask(state(rec, args), asked)
+        ps = [q.value(answers[qid]) for qid, q in asked.items()]
+        return min(ps) if args.all else max(ps), ps
 
     def complain(message: str) -> None:
         s["errors"] += 1
         if s["errors"] <= MAX_ERRORS_SHOWN:
             print(f"jgrep: {message}", file=err)
 
-    def emit(rec: Record, p: float | None, ps: list[float] | None, error: str | None) -> None:
-        s["seen"] += 1
-        tally(s["function_context"], rec)
-        if error:
-            return complain(f"{rec.file}:{rec.lineno}: {error}")
+    def emit(rec: Record, p: float, ps: list[float]) -> bool:
+        """Print a match; True when the run should stop."""
         if (p >= args.threshold) == args.invert_match:
-            return
+            return False
         s["matched"] += 1
         counts[rec.input_id] = counts.get(rec.input_id, 0) + 1
         if not args.quiet and (not args.count or args.files_with_matches):
@@ -315,90 +292,33 @@ async def scan(args, descriptions: list[str], files: list[str], jev: Client, out
                 out.flush()
             except BrokenPipeError:
                 s["broken_pipe"] = True
-                halt.set()
-        if args.quiet or args.files_with_matches or (args.max_count and s["matched"] >= args.max_count):
-            halt.set()
+                return True
+        return bool(args.quiet or args.files_with_matches or (args.max_count and s["matched"] >= args.max_count))
 
-    def deliver(rec: Record, result: tuple) -> None:
-        if args.unordered:
-            sem.release()
-            return None if halt.is_set() else emit(rec, *result)
-        finished[rec.seq] = (rec, *result)
-        while s["next"] in finished and not halt.is_set():
-            emit(*finished.pop(s["next"]))
-            s["next"] += 1
-            sem.release()
-
-    async def judge(rec: Record) -> None:
-        try:
-            if not (args.chunks or args.diff or args.functions) and any(len(t) > args.max_chars for t in (rec.text, *rec.before, *rec.after)):
-                s["truncated"] += 1
-            if not rec.text.strip():
-                result = (0.0, [0.0] * len(questions), None)
-            else:
-                # A hunk without context is asked exactly what plain --diff asks, and shares its cache.
-                asked = function_questions[bool(rec.unit["commit"])] if rec.context else questions
-                answers = await jev.ask(state(rec, args), asked)
-                ps = [float(answers[q]["noul"]) for q in asked]
-                result = (min(ps) if args.all else max(ps), ps, None)
-        except JevError as e:
-            result = (None, None, str(e))
-        except JevFatal as e:
-            s["fatal"] = s["fatal"] or str(e)
-            return halt.set()
-        except Exception as e:
-            # Every record needs a result so one client/cache failure cannot leave
-            # a permanent gap in ordered output or masquerade as "no matches".
-            result = (None, None, f"{type(e).__name__}: {e}")
-        deliver(rec, result)
-        if args.budget and jev.meter.cost >= args.budget and not s["over_budget"]:
-            s["over_budget"] = True
-            halt.set()
-
-    def completed(task: asyncio.Task) -> None:
-        tasks.discard(task)
-        if not task.cancelled() and (error := task.exception()) is not None:
-            s["fatal"] = s["fatal"] or f"{type(error).__name__}: {error}"
-            halt.set()
-
-    threading.Thread(target=feed, daemon=True).start()
-    halted = asyncio.ensure_future(halt.wait())
-    while not halt.is_set():
-        get = asyncio.ensure_future(queue.get())
-        await asyncio.wait({get, halted}, return_when=asyncio.FIRST_COMPLETED)
-        if not get.done():
-            get.cancel()
-            break
-        item = get.result()
-        if item is None:
-            break
-        if isinstance(item, str):
-            complain(item)
-            continue
-        slot = asyncio.ensure_future(sem.acquire())
-        await asyncio.wait({slot, halted}, return_when=asyncio.FIRST_COMPLETED)
-        if halt.is_set():
-            slot.cancel()
-            await asyncio.gather(slot, return_exceptions=True)
-            break
-        task = asyncio.create_task(judge(item))
-        tasks.add(task)
-        task.add_done_callback(completed)
-
-    stop.set()
-    if feeding["put"] is not None:
-        feeding["put"].cancel()
-    # EOF only stops the reader. Matches, budget limits and fatal errors can
-    # still arrive while draining requests, and must interrupt that drain.
-    pending = list(tasks)
-    drained = asyncio.gather(*pending, return_exceptions=True)
-    await asyncio.wait({drained, halted}, return_when=asyncio.FIRST_COMPLETED)
-    if halt.is_set():
-        for t in pending:
-            t.cancel()
-    await drained
-    halted.cancel()
-    await asyncio.gather(halted, return_exceptions=True)
+    async with ordered_map(read, judge, concurrency=args.concurrency, ordered=not args.unordered,
+                           urgent=(JevFatal, JevBudgetExceeded)) as results:
+        async for outcome in results:
+            rec, error = outcome.item, outcome.error
+            if rec is None:  # the reader itself failed
+                complain(f"input reader: {type(error).__name__}: {error}")
+                break
+            if isinstance(outcome.value, str):
+                complain(outcome.value)
+                continue
+            if isinstance(error, JevFatal):
+                s["fatal"] = str(error)
+                break
+            if isinstance(error, JevBudgetExceeded):
+                s["over_budget"] = True
+                break
+            s["seen"] += 1
+            tally(s["function_context"], rec)
+            if error is not None:
+                detail = str(error) if isinstance(error, JevError) else f"{type(error).__name__}: {error}"
+                complain(f"{rec.file}:{rec.lineno}: {detail}")
+                continue
+            if emit(rec, *outcome.value):
+                break
 
     print_counts(args, files, counts, out, show_file)
     if s["truncated"]:
@@ -411,37 +331,31 @@ async def scan(args, descriptions: list[str], files: list[str], jev: Client, out
     if s["fatal"]:
         print(f"jgrep: {s['fatal']}", file=err)
     if s["over_budget"]:
-        print(f"jgrep: stopped at the ${args.budget:.2f} budget after {s['seen']:,} records; raise it with --budget",
-              file=err)
+        print(f"jgrep: stopped at the ${jev.budget.limit:.2f} budget after {s['seen']:,} records; "
+              "raise it with --budget", file=err)
     return s
 
 
 def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -> int:
     out, err = out or sys.stdout, err or sys.stderr
     ap = parser()
-    args = ap.parse_intermixed_args(argv)
+    try:
+        args = ap.parse_intermixed_args(argv)
+    except UsageError as e:
+        ap.print_usage(err)
+        print(f"jgrep: {e}", file=err)
+        return 2
     descriptions, files = (args.descriptions, args.args) if args.descriptions else (args.args[:1], args.args[1:])
     if args.emit_records:
         descriptions, files = [], args.args
     if not descriptions and not args.emit_records:
         ap.print_usage(err)
         return 2
-    if args.concurrency < 1:
-        print("jgrep: -j takes 1 or more concurrent calls", file=err)
-        return 2
     if args.max_count is not None and args.max_count < 0:
         print("jgrep: -m takes 0 or more matches per file", file=err)
         return 2
-    if args.budget is None:
-        try:
-            args.budget = float(os.environ.get("JGREP_BUDGET") or DEFAULT_BUDGET)
-        except ValueError:
-            print(f"jgrep: JGREP_BUDGET must be a number of dollars; got {os.environ['JGREP_BUDGET']!r}", file=err)
-            return 2
     for valid, message in (
         (math.isfinite(args.threshold) and 0 <= args.threshold <= 1, "-p must be a finite probability from 0 to 1"),
-        (math.isfinite(args.budget) and args.budget >= 0, "--budget / JGREP_BUDGET must be finite and nonnegative"),
-        (math.isfinite(args.timeout) and args.timeout > 0, "--timeout must be finite and greater than 0"),
         (args.max_chars > 0, "--max-chars must be greater than 0"),
         (args.chunks is None or args.chunks > 0, "--chunks must be greater than 0"),
         (not args.lang or args.functions, "--lang requires --functions"),
@@ -465,6 +379,11 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
         if not valid:
             print(f"jgrep: {message}", file=err)
             return 2
+    try:
+        budget = budget_from_args(args)
+    except JevFatal as e:
+        print(f"jgrep: {e}", file=err)
+        return 2
     if args.chunks and args.overlap is None:
         args.overlap = min(200, args.chunks // 4)
     if args.whole and args.para:
@@ -479,7 +398,7 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
     if args.max_count == 0 and not args.estimate:
         show_file = not args.no_filename and (args.with_filename or len(files) > 1)
         print_counts(args, files, {}, out, show_file)
-        if args.stats or (args.stats is None and err.isatty()):
+        if show_stats(args, err):
             print("jgrep: 0 records, 0 matched; 0 calls, 0 cached; 0.0s", file=err)
         return 1
     files, discovery_errors = discover(files, args)
@@ -488,28 +407,35 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
     if len(discovery_errors) > MAX_ERRORS_SHOWN:
         print(f"jgrep: and {len(discovery_errors) - MAX_ERRORS_SHOWN} more discovery errors", file=err)
     if args.estimate or args.emit_records:
-        return offline_run(args, descriptions, files, discovery_errors, out, err)
+        return offline_run(args, descriptions, files, discovery_errors, budget, out, err)
     if not files:
         return 2 if discovery_errors else 1
     try:
-        backend = resolve(PROVIDERS, args.api, model=args.model)
+        jev = runtime_from_args(args, PROVIDERS, budget=budget, transport=transport)
     except JevFatal as e:
         print(f"jgrep: {e}", file=err)
         return 2
 
-    jev = Client(backend, timeout=args.timeout, concurrency=args.concurrency,
-              store=None if args.no_cache else AnswerStore(), transport=transport)
+    record_run = Run("jgrep", __version__)
     t0 = time.perf_counter()
     try:
         code = asyncio.run(run(args, descriptions, files, jev, out, err))
     except KeyboardInterrupt:
-        code, args.summary = 130, f"interrupted; {jev.meter.summary()}"
-    if args.stats or (args.stats is None and err.isatty()):
-        print(f"jgrep: {args.summary}; {time.perf_counter() - t0:.1f}s", file=err)
+        code, args.summary = 130, "interrupted"
+    record = record_run.record(jev, fields={
+        "descriptions": descriptions, "threshold": args.threshold, "all": args.all,
+        "invert": args.invert_match, "files": files, "max_chars": args.max_chars, "summary": args.summary})
+    for warning in run_warnings(record):
+        print(f"jgrep: {warning}", file=err)
+    if args.record:
+        with open(args.record, "w", encoding="utf-8") as f:
+            json.dump(record, f, ensure_ascii=False, indent=2)
+    if show_stats(args, err):
+        print(f"jgrep: {args.summary}; {stats_line(jev, time.perf_counter() - t0)}", file=err)
     return 2 if discovery_errors and code in (0, 1) and not (args.quiet and code == 0) else code
 
 
-def offline_run(args, descriptions, files, discovery_errors, out, err):
+def offline_run(args, descriptions, files, discovery_errors, budget, out, err):
     from .code_inputs import export_record
     from .estimate import estimate
     stream = records(files, args, threading.Event()) if files else iter(())
@@ -518,7 +444,7 @@ def offline_run(args, descriptions, files, discovery_errors, out, err):
     try:
         if args.estimate:
             questions, function_questions = ask(descriptions, args)
-            result = estimate(stream, args, questions, state, function_questions)
+            result = estimate(stream, args, questions, state, function_questions, budget)
             result["errors"] = discovery_errors + result["errors"]
             if args.json:
                 print(json.dumps(result, ensure_ascii=False), file=out)
