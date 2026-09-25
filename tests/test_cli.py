@@ -124,15 +124,16 @@ def test_halt_interrupts_wait_for_ordered_output_slot(tmp_path, failure):
         return httpx.Response(200, json={"answers": {"d0": {"noul": 0.9}}, "usage": {"cost": 0.01}})
 
     path = write(tmp_path, "data.txt", "".join(f"row {i}\n" for i in range(20)))
-    code, out, err, _ = jgrep(["matches", path, "-j", "2", "--no-cache", "--budget", "0.005"],
-                             fake=handler)
-    assert code == 2 and len(calls) == 2
+    budget = "none" if failure == "fatal" else "0.005"
+    code, out, err, _ = jgrep(["matches", path, "-j", "2", "--no-cache", "--budget", budget], fake=handler)
+    assert code == 2
     if failure == "fatal":
         # A bad key stops the run at once, cancelling the slow record ahead of it.
-        assert not out and "401" in err and cancelled == ["row 0"]
+        assert not out and "401" in err and cancelled == ["row 0"] and len(calls) == 2
     else:
-        # The budget refuses the next request; the two already paid for are still printed, in order.
-        assert out == "row 0\nrow 1\n" and "budget" in err and not cancelled
+        # Under a limit the first request goes alone to learn the price; it costs more than the budget,
+        # so it is printed, paid for, and nothing more is sent.
+        assert out == "row 0\n" and "budget" in err and not cancelled and calls == ["row 0"]
 
 
 def test_invert_prob_and_line_numbers(tmp_path):
@@ -547,8 +548,8 @@ def test_invalid_concurrency_and_match_limits_fail_before_setup(monkeypatch, fla
     assert code == 2 and flag in err and not fake.bodies
 
 
-def test_a_price_rise_mid_flight_is_reported_when_spending_passes_the_budget(tmp_path):
+def test_a_first_charge_dearer_than_the_budget_stops_the_run_and_is_reported(tmp_path):
     f = write(tmp_path, "a.txt", "alpha one\nalpha two\n")
-    code, _, err, fake = jgrep(["alpha", f, "-j", "2", "--no-cache", "--budget", "0.005"], jitter=0.05)
-    assert code == 0 and len(fake.bodies) == 2
-    assert "against a $0.01 budget: the price rose" in err
+    code, out, err, fake = jgrep(["alpha", f, "-j", "2", "--no-cache", "--budget", "0.005"], jitter=0.05)
+    assert code == 2 and len(fake.bodies) == 1 and out == "alpha one\n"
+    assert "stopped at the $0.01 budget" in err and "against a $0.01 budget: the price rose" in err
