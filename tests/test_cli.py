@@ -47,7 +47,7 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    for name in ("TYPESAFE_API_KEY", "JEV_API", "JEV_MODEL", "JEV_URL", "JGREP_BUDGET",
+    for name in ("TYPESAFE_API_KEY", "JEV_API", "JEV_MODEL", "JEV_URL", "JEV_BUDGET",
                  "JEV_GATEWAY_URL", "JEV_GATEWAY_API_KEY", "JEV_PRICE_PER_MTOK",
                  "JEV_DIFFUSIONGEMMA_URL", "JEV_DIFFUSIONGEMMA_API_KEY", "JEV_LAYA_URL", "JEV_LAYA_API_KEY"):
         monkeypatch.delenv(name, raising=False)
@@ -95,7 +95,7 @@ def test_slow_first_record_bounds_ordered_work(tmp_path, flags, first_status):
 
     lines = [f"row {i}" for i in range(200)]
     path = write(tmp_path, "data.txt", "\n".join(lines) + "\n")
-    code, out, _, _ = jgrep(["matches", path, "-j", "2", "--no-cache", "--budget", "0", *flags],
+    code, out, _, _ = jgrep(["matches", path, "-j", "2", "--no-cache", "--budget", "none", *flags],
                            fake=handler)
     assert ahead == [2]
     assert code == (0 if first_status == 200 else 2)
@@ -124,11 +124,16 @@ def test_halt_interrupts_wait_for_ordered_output_slot(tmp_path, failure):
         return httpx.Response(200, json={"answers": {"d0": {"noul": 0.9}}, "usage": {"cost": 0.01}})
 
     path = write(tmp_path, "data.txt", "".join(f"row {i}\n" for i in range(20)))
-    code, out, err, _ = jgrep(["matches", path, "-j", "2", "--no-cache", "--budget", "0.005"],
-                             fake=handler)
-    assert code == 2 and not out
-    assert ("401" if failure == "fatal" else "budget") in err
-    assert cancelled == ["row 0"] and len(calls) == 2
+    budget = "none" if failure == "fatal" else "0.005"
+    code, out, err, _ = jgrep(["matches", path, "-j", "2", "--no-cache", "--budget", budget], fake=handler)
+    assert code == 2
+    if failure == "fatal":
+        # A bad key stops the run at once, cancelling the slow record ahead of it.
+        assert not out and "401" in err and cancelled == ["row 0"] and len(calls) == 2
+    else:
+        # Under a limit the first request goes alone to learn the price; it costs more than the budget,
+        # so it is printed, paid for, and nothing more is sent.
+        assert out == "row 0\n" and "budget" in err and not cancelled and calls == ["row 0"]
 
 
 def test_invert_prob_and_line_numbers(tmp_path):
@@ -234,12 +239,12 @@ def test_budget_halts_the_run(tmp_path):
 
 def test_budget_default_comes_from_the_environment(monkeypatch, tmp_path):
     f = write(tmp_path, "a.txt", "".join(f"alpha {i}\n" for i in range(400)))
-    monkeypatch.setenv("JGREP_BUDGET", "0.05")
-    assert jgrep(["alpha", f, "-j", "2", "--no-cache"])[0] == 2          # the environment's cap applies
-    assert jgrep(["alpha", f, "--budget", "0", "--no-cache"])[0] == 0    # the flag overrides it
-    monkeypatch.setenv("JGREP_BUDGET", "lots")
+    monkeypatch.setenv("JEV_BUDGET", "0.05")
+    assert jgrep(["alpha", f, "-j", "2", "--no-cache"])[0] == 2             # the environment's cap applies
+    assert jgrep(["alpha", f, "--budget", "none", "--no-cache"])[0] == 0    # the flag overrides it
+    monkeypatch.setenv("JEV_BUDGET", "lots")
     code, _, err, _ = jgrep(["alpha", f])
-    assert code == 2 and "JGREP_BUDGET must be a number" in err
+    assert code == 2 and "JEV_BUDGET must be a number" in err
 
 
 def test_paragraphs_and_whole_files(tmp_path):
@@ -276,14 +281,14 @@ def test_typesafe_api_is_preferred_when_it_has_a_key(monkeypatch, tmp_path):
     code = main(["alpha", write(tmp_path, "a.txt", "alpha\n"), "--stats"],
                 transport=httpx.MockTransport(handler), out=out, err=err)
     assert code == 0 and out.getvalue() == "alpha\n"
-    assert seen == [("https://api.typesafe.ai/v1/systemone", "Bearer ts-key", "jev-latest")]
+    assert seen == [("https://api.typesafe.ai/v1/systemone", "Bearer ts-key", "jev-1.13.0")]
     assert "$0.0420" in err.getvalue()  # priced from tokens
 
 
 def test_api_flag_overrides_the_default(monkeypatch, tmp_path):
     monkeypatch.setenv("TYPESAFE_API_KEY", "ts-key")
     code, out, _, fake = jgrep(["alpha", write(tmp_path, "a.txt", "alpha\n"), "--api", "openrouter"])
-    assert code == 0 and fake.bodies[0]["model"] == "~typesafe/jev-latest"
+    assert code == 0 and fake.bodies[0]["model"] == "typesafe/jev-1.13"
 
 
 def test_key_file_is_read(monkeypatch, tmp_path):
@@ -309,7 +314,7 @@ def test_gateway_is_called_at_its_own_url_with_its_own_key(monkeypatch, tmp_path
     code = main(["alpha", write(tmp_path, "a.txt", "alpha\n")],
                 transport=httpx.MockTransport(gateway_handler(seen)), out=out, err=err)
     assert code == 0 and out.getvalue() == "alpha\n"
-    assert seen == [("https://gateway.example.com/v1/systemone", "Bearer gw-key", "jev-latest")]
+    assert seen == [("https://gateway.example.com/v1/systemone", "Bearer gw-key", "jev-1.13.0")]
 
 
 def test_gateway_url_and_key_can_come_from_config_files(monkeypatch, tmp_path):
@@ -321,7 +326,7 @@ def test_gateway_url_and_key_can_come_from_config_files(monkeypatch, tmp_path):
     code = main(["alpha", write(tmp_path, "a.txt", "alpha\n"), "--api", "gateway"],
                 transport=httpx.MockTransport(gateway_handler(seen)), out=io.StringIO(), err=io.StringIO())
     assert code == 0
-    assert seen == [("https://gw.internal/v1/systemone", "Bearer file-key", "jev-latest")]
+    assert seen == [("https://gw.internal/v1/systemone", "Bearer file-key", "jev-1.13.0")]
 
 
 def test_gateway_without_a_url_is_explained(monkeypatch, tmp_path):
@@ -334,7 +339,7 @@ def test_gateway_key_alone_does_not_win_the_default(monkeypatch, tmp_path):
     # A gateway key with no URL cannot be used, so the default falls through to a usable API.
     monkeypatch.setenv("JEV_GATEWAY_API_KEY", "gw-key")
     code, out, _, fake = jgrep(["alpha", write(tmp_path, "a.txt", "alpha\n")])
-    assert code == 0 and fake.bodies[0]["model"] == "~typesafe/jev-latest"
+    assert code == 0 and fake.bodies[0]["model"] == "typesafe/jev-1.13"
 
 
 def test_typesafe_error_bodies_are_readable(monkeypatch, tmp_path):
@@ -431,22 +436,25 @@ def test_malformed_answer_reports_error_and_preserves_later_matches(tmp_path, an
     assert out == "alpha later\n"
     assert f"{f}:1:" in err and "answer" in err
     cache = AnswerStore()
-    backend = Backend("openrouter", PROVIDERS["openrouter"].url, "~typesafe/jev-latest")
+    backend = Backend("openrouter", PROVIDERS["openrouter"].url, PROVIDERS["openrouter"].model)
     key = answer_key(backend, "bad answer", cli_module.question("alpha"))
     assert cache.get(key) is None
     cache.close()
 
 
-def test_malformed_cached_answer_does_not_block_later_matches(tmp_path):
+def test_a_malformed_cached_answer_is_asked_again_and_replaced(tmp_path):
     cache = AnswerStore()
-    backend = Backend("openrouter", PROVIDERS["openrouter"].url, "~typesafe/jev-latest")
+    backend = Backend("openrouter", PROVIDERS["openrouter"].url, PROVIDERS["openrouter"].model)
     key = answer_key(backend, "bad answer", cli_module.question("alpha"))
     cache.put(key, {})
     cache.close()
     f = write(tmp_path, "a.txt", "bad answer\nalpha later\n")
-    code, out, err, _ = jgrep(["alpha", f])
-    assert code == 2 and out == "alpha later\n"
-    assert f"{f}:1:" in err and "question 'd0'" in err
+    code, out, err, fake = jgrep(["alpha", f])
+    assert code == 0 and out == "alpha later\n" and not err
+    assert [b["state"] for b in fake.bodies] == ["bad answer", "alpha later"]
+    cache = AnswerStore()
+    assert cache.get(key)["noul"] == 0.1
+    cache.close()
 
 
 def test_unexpected_judge_exception_is_reported(monkeypatch, tmp_path):
@@ -464,7 +472,7 @@ def test_unexpected_judge_exception_is_reported(monkeypatch, tmp_path):
     assert "unexpected client failure" in err
 
 
-@pytest.mark.parametrize("flags, expected", [(["-q"], 0), (["--budget", "0.005"], 2), (["-m", "1"], 0)])
+@pytest.mark.parametrize("flags, expected", [(["-q"], 0), (["-m", "1"], 0)])
 def test_stop_after_eof_cancels_pending_requests(monkeypatch, tmp_path, flags, expected):
     eof = threading.Event()
     original = cli_module.records
@@ -535,6 +543,13 @@ def test_invalid_concurrency_and_match_limits_fail_before_setup(monkeypatch, fla
     def no_backend(*_, **__):
         pytest.fail("invalid limits must fail before creating a client")
 
-    monkeypatch.setattr(cli_module, "resolve", no_backend)
+    monkeypatch.setattr(cli_module, "runtime_from_args", no_backend)
     code, _, err, fake = jgrep(["alpha", flag, value])
     assert code == 2 and flag in err and not fake.bodies
+
+
+def test_a_first_charge_dearer_than_the_budget_stops_the_run_and_is_reported(tmp_path):
+    f = write(tmp_path, "a.txt", "alpha one\nalpha two\n")
+    code, out, err, fake = jgrep(["alpha", f, "-j", "2", "--no-cache", "--budget", "0.005"], jitter=0.05)
+    assert code == 2 and len(fake.bodies) == 1 and out == "alpha one\n"
+    assert "stopped at the $0.01 budget" in err and "against a $0.01 budget: the price rose" in err

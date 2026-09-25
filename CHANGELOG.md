@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.0
+
+On `jevkit-runtime` 0.4 ([jevkit-core#14](https://github.com/keltokhy/jevkit-core/issues/14)).
+Breaking for scripts that set a budget.
+
+- `--budget` now sends no request that would take spending past the limit: each request sets aside
+  its estimated price first, so requests in flight together cannot overshoot, and answers already
+  paid for are still printed when the budget stops the run. `--budget none` is no limit and
+  `--budget 0` answers only from the cache (it used to mean no limit). `JEV_BUDGET` replaces
+  `JGREP_BUDGET` and applies to every JevKit tool.
+- The model is pinned to `jev-1.13.0` (`typesafe/jev-1.13` on OpenRouter) instead of the
+  `jev-latest` alias; `--model jev-latest` still asks for it. jgrep warns when one requested model
+  was answered by more than one.
+- `--record FILE` writes the run's record: backends, the models that answered, each question as
+  asked, calls, tokens, cost and the budget.
+- A malformed cached answer is asked again and replaced, rather than reported as an error.
+- `--estimate` is the runtime's plan for each record over a read-only cache.
+- Reading, judging and ordered output run on the runtime's streaming engine; a bad key still stops
+  the run at once.
+- The cache moves to `~/.cache/jev/answers.v3.sqlite`; the first run after upgrading re-asks.
+
 ## 0.5.0
 
 - Add `--api gliner`, a local [GLiNER2.5-Decide](https://huggingface.co/fastino/GLiNER2.5-Decide)

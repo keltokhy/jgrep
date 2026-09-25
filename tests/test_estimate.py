@@ -12,7 +12,7 @@ from test_code_inputs import REMOVAL
 
 def test_estimate_without_credentials_never_creates_client_or_cache(monkeypatch, tmp_path):
     monkeypatch.delenv("OPENROUTER_API_KEY")
-    monkeypatch.setattr(cli, "resolve", lambda *_, **__: (_ for _ in ()).throw(AssertionError("auth lookup")))
+    monkeypatch.setattr(cli, "runtime_from_args", lambda *_, **__: (_ for _ in ()).throw(AssertionError("client")))
     path = write(tmp_path, "data.txt", "alpha\nalpha\n\nother\n")
     code, out, err, fake = jgrep(["alpha", path, "--estimate", "--json"])
     result = json.loads(out)

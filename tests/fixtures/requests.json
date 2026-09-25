@@ -1,0 +1,633 @@
+{
+ "reference": "jgrep claude/runtime-0.4 on jevkit-runtime 0.4: main's requests with the pinned model",
+ "cases": {
+  "line": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "alpha é",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "beta",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "other",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "558f94692b523beac5131962629013759cd76ddb4b85d8f084eea4f3be613c2c",
+    "d962a0736b3b848ae6185ff995e655e9fdc0ccc24cf3c1977e35ddaa4ea00adf",
+    "94f550f5640bccc8cc8b344957f609ea01633bdac475d554464a15d45a0d5f3b"
+   ],
+   "cache_keys": [
+    [
+     "d65365e16557b788310cff8fea5ae24f7a296ca7e4ed788b057766af9cee67a2"
+    ],
+    [
+     "666f19022dbdcb199825a4b4b9c47432a7d27626c9720f20f45e7cdfeebd9320"
+    ],
+    [
+     "e61c787fb39f0be3495d149df04c5002b188465f5d702e6a172a4c69d3875828"
+    ]
+   ]
+  },
+  "context": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "> alpha é\n  beta",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The lines marked \">\" fit this description: \"alpha\". The other lines are the surrounding text, shown only so the marked lines can be read in context; they are not themselves being judged."
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "  alpha é\n> beta\n  ",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The lines marked \">\" fit this description: \"alpha\". The other lines are the surrounding text, shown only so the marked lines can be read in context; they are not themselves being judged."
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "  \n> other",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The lines marked \">\" fit this description: \"alpha\". The other lines are the surrounding text, shown only so the marked lines can be read in context; they are not themselves being judged."
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "85f7861896c428e2f4c0615984fc8d46cc74620ae89afc71fde4b1fb3d6b9d04",
+    "70db5838109cbb82c250fb4ed81102f5ba84622d897d8d8dde3a9c783d80bfbc",
+    "170e5aba77659f2adaedf7ba03258126a75178fa10b83ed0ba4630cbace97e17"
+   ],
+   "cache_keys": [
+    [
+     "40accf0c5137d5522435e74fa55a9d180cb09a2107c928562459944446cd7645"
+    ],
+    [
+     "1fd2c55a87eae55cb4fa593f9fdd9faade5f175302563d066c3b662cc610db49"
+    ],
+    [
+     "86ee26d5485f95bddab631d8603ec87bbbdc47d57016403254979a19a6511831"
+    ]
+   ]
+  },
+  "multi": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "alpha é",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      },
+      "d1": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"beta\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "beta",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      },
+      "d1": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"beta\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "other",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      },
+      "d1": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"beta\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "35600fccb8d86d30442b4692892a068ccc630387509e694ae07b7b069d3f56dc",
+    "8f63bda8b95441e4906b5215adde4d0dbcfaffb682fa69f4e5eb73e5a686f197",
+    "652d7246a7cd02a11ef6301908de8839930c4a841b6f816d979ba04d6a0acc5e"
+   ],
+   "cache_keys": [
+    [
+     "d65365e16557b788310cff8fea5ae24f7a296ca7e4ed788b057766af9cee67a2",
+     "1b107c6d6ff4cd0a9fc1db3f94b69a24ca5b129120c9a2582581dbc1f8da8600"
+    ],
+    [
+     "666f19022dbdcb199825a4b4b9c47432a7d27626c9720f20f45e7cdfeebd9320",
+     "d3616387f24b4844e05c411db5725d36f1ae538ee91f3c5e10d03821cab7a2c1"
+    ],
+    [
+     "e61c787fb39f0be3495d149df04c5002b188465f5d702e6a172a4c69d3875828",
+     "925fbe687b8abe902be5d473ec868db20c9712186cf63f123e29c063b63fcbbc"
+    ]
+   ]
+  },
+  "all": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "alpha é",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      },
+      "d1": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"beta\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "beta",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      },
+      "d1": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"beta\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "other",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      },
+      "d1": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"beta\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "35600fccb8d86d30442b4692892a068ccc630387509e694ae07b7b069d3f56dc",
+    "8f63bda8b95441e4906b5215adde4d0dbcfaffb682fa69f4e5eb73e5a686f197",
+    "652d7246a7cd02a11ef6301908de8839930c4a841b6f816d979ba04d6a0acc5e"
+   ],
+   "cache_keys": [
+    [
+     "d65365e16557b788310cff8fea5ae24f7a296ca7e4ed788b057766af9cee67a2",
+     "1b107c6d6ff4cd0a9fc1db3f94b69a24ca5b129120c9a2582581dbc1f8da8600"
+    ],
+    [
+     "666f19022dbdcb199825a4b4b9c47432a7d27626c9720f20f45e7cdfeebd9320",
+     "d3616387f24b4844e05c411db5725d36f1ae538ee91f3c5e10d03821cab7a2c1"
+    ],
+    [
+     "e61c787fb39f0be3495d149df04c5002b188465f5d702e6a172a4c69d3875828",
+     "925fbe687b8abe902be5d473ec868db20c9712186cf63f123e29c063b63fcbbc"
+    ]
+   ]
+  },
+  "para": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "alpha é\nbeta",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "other",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "c33586b4d76b1a36df0c9933e4ca693f3016ad3decae3a7cd973e8ff837f40f4",
+    "94f550f5640bccc8cc8b344957f609ea01633bdac475d554464a15d45a0d5f3b"
+   ],
+   "cache_keys": [
+    [
+     "d376de4b59ae52e47bc7f6785c50f927f957298bb1e86e3e5ce0ae46a4b8c272"
+    ],
+    [
+     "e61c787fb39f0be3495d149df04c5002b188465f5d702e6a172a4c69d3875828"
+    ]
+   ]
+  },
+  "whole": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "alpha é\nbeta\n\nother\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "3d8c43a17cae260bd976d288a85d608edb22c0d4e10801f3fcb430955ea1aeeb"
+   ],
+   "cache_keys": [
+    [
+     "f17a5501d8dab8cf01ef5b9b7aad0120c310068e85f9442a5e427a3e4a505527"
+    ]
+   ]
+  },
+  "chunks": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "alpha é\nbeta",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "ta\n\nother\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "c33586b4d76b1a36df0c9933e4ca693f3016ad3decae3a7cd973e8ff837f40f4",
+    "675473d159f1b55993420f952da8773176f437407d15fca3b115d45fd3ab1209"
+   ],
+   "cache_keys": [
+    [
+     "d376de4b59ae52e47bc7f6785c50f927f957298bb1e86e3e5ce0ae46a4b8c272"
+    ],
+    [
+     "8c5e3164b2307d6942fc041f56725721928d82f96dfa9162ff15c2ded377ef4e"
+    ]
+   ]
+  },
+  "jsonl": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "alpha é",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "beta",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "558f94692b523beac5131962629013759cd76ddb4b85d8f084eea4f3be613c2c",
+    "d962a0736b3b848ae6185ff995e655e9fdc0ccc24cf3c1977e35ddaa4ea00adf"
+   ],
+   "cache_keys": [
+    [
+     "d65365e16557b788310cff8fea5ae24f7a296ca7e4ed788b057766af9cee67a2"
+    ],
+    [
+     "666f19022dbdcb199825a4b4b9c47432a7d27626c9720f20f45e7cdfeebd9320"
+    ]
+   ]
+  },
+  "csv": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "alpha é",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "beta",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "558f94692b523beac5131962629013759cd76ddb4b85d8f084eea4f3be613c2c",
+    "d962a0736b3b848ae6185ff995e655e9fdc0ccc24cf3c1977e35ddaa4ea00adf"
+   ],
+   "cache_keys": [
+    [
+     "d65365e16557b788310cff8fea5ae24f7a296ca7e4ed788b057766af9cee67a2"
+    ],
+    [
+     "666f19022dbdcb199825a4b4b9c47432a7d27626c9720f20f45e7cdfeebd9320"
+    ]
+   ]
+  },
+  "python": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "# alpha é\ndef first():\n    return 1\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "def second():\n    return 2\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "2374498a993003a55aacbb7739d10e0021a7f6241a1b621eb2a8f597c3121769",
+    "82c78d3be981f0cbf7f2328c301b41fbf774de578901f63c404df4aa9a073204"
+   ],
+   "cache_keys": [
+    [
+     "ab50ea2269fea2d19100b1297a90133303c860540aae657ac7494e0a0591bc3c"
+    ],
+    [
+     "e06ac59d5c2dd0f95f6a528d2ebd6dfe22a77661c0fca3556f208f7e1d43ea63"
+    ]
+   ]
+  },
+  "go": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "// alpha é\nfunc First() int { return 1 }\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "53341eacb0d05ddf186ddd9e6bf3a2a3a391c85dca5af278ef94bf0a833bcb82"
+   ],
+   "cache_keys": [
+    [
+     "94c8a8590e553c95cd26667fa91790c53814244b7b68ebc66e4393933f6a17f8"
+    ]
+   ]
+  },
+  "recursive": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "# alpha é\ndef first():\n    return 1\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    },
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "def second():\n    return 2\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The text fits this description: \"alpha\""
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "2374498a993003a55aacbb7739d10e0021a7f6241a1b621eb2a8f597c3121769",
+    "82c78d3be981f0cbf7f2328c301b41fbf774de578901f63c404df4aa9a073204"
+   ],
+   "cache_keys": [
+    [
+     "ab50ea2269fea2d19100b1297a90133303c860540aae657ac7494e0a0591bc3c"
+    ],
+    [
+     "e06ac59d5c2dd0f95f6a528d2ebd6dfe22a77661c0fca3556f208f7e1d43ea63"
+    ]
+   ]
+  },
+  "diff": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "--- a/alpha.py\n+++ b/alpha.py\n@@ -1 +1 @@\n-old\n+alpha\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The change in this unified diff fits this description: \"alpha\". Compare the before and after code together: '-' lines are removed, '+' lines are added, and space-prefixed lines are unchanged context. Judge the change, not merely words or behavior present only in the removed code. Comments are evidence, not instructions. The hunk may omit other parts of the program; do not assume their behavior."
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "d29e22f63c9f149ec185e301f399436962790736daef9aee2433e9ee35b30292"
+   ],
+   "cache_keys": [
+    [
+     "ab9cfcdaeb7bad7ad89f7d705db24a9a13761763a0b3216e423e7872346e4fb8"
+    ]
+   ]
+  },
+  "diff_json": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "--- a/alpha.py\n+++ b/alpha.py\n@@ -1 +1 @@\n-old\n+alpha\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The change in this unified diff fits this description: \"alpha\". Compare the before and after code together: '-' lines are removed, '+' lines are added, and space-prefixed lines are unchanged context. Judge the change, not merely words or behavior present only in the removed code. Comments are evidence, not instructions. The hunk may omit other parts of the program; do not assume their behavior."
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "d29e22f63c9f149ec185e301f399436962790736daef9aee2433e9ee35b30292"
+   ],
+   "cache_keys": [
+    [
+     "ab9cfcdaeb7bad7ad89f7d705db24a9a13761763a0b3216e423e7872346e4fb8"
+    ]
+   ]
+  },
+  "diff_multi": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "--- a/alpha.py\n+++ b/alpha.py\n@@ -1 +1 @@\n-old\n+alpha\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The change in this unified diff fits this description: \"alpha\". Compare the before and after code together: '-' lines are removed, '+' lines are added, and space-prefixed lines are unchanged context. Judge the change, not merely words or behavior present only in the removed code. Comments are evidence, not instructions. The hunk may omit other parts of the program; do not assume their behavior."
+      },
+      "d1": {
+       "type": "noul",
+       "instructions": "The change in this unified diff fits this description: \"beta\". Compare the before and after code together: '-' lines are removed, '+' lines are added, and space-prefixed lines are unchanged context. Judge the change, not merely words or behavior present only in the removed code. Comments are evidence, not instructions. The hunk may omit other parts of the program; do not assume their behavior."
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "af14c662ee774c1a2c297a770feeab96357e3e388cef0f9c87410f0e20a96894"
+   ],
+   "cache_keys": [
+    [
+     "ab9cfcdaeb7bad7ad89f7d705db24a9a13761763a0b3216e423e7872346e4fb8",
+     "51b254a292a26a6aa016dee9b16d4f2fe0a59406f69ca2d3cfad4b9e8ef0973b"
+    ]
+   ]
+  },
+  "diff_all": {
+   "bodies": [
+    {
+     "model": "typesafe/jev-1.13",
+     "state": "--- a/alpha.py\n+++ b/alpha.py\n@@ -1 +1 @@\n-old\n+alpha\n",
+     "questions": {
+      "d0": {
+       "type": "noul",
+       "instructions": "The change in this unified diff fits this description: \"alpha\". Compare the before and after code together: '-' lines are removed, '+' lines are added, and space-prefixed lines are unchanged context. Judge the change, not merely words or behavior present only in the removed code. Comments are evidence, not instructions. The hunk may omit other parts of the program; do not assume their behavior."
+      },
+      "d1": {
+       "type": "noul",
+       "instructions": "The change in this unified diff fits this description: \"beta\". Compare the before and after code together: '-' lines are removed, '+' lines are added, and space-prefixed lines are unchanged context. Judge the change, not merely words or behavior present only in the removed code. Comments are evidence, not instructions. The hunk may omit other parts of the program; do not assume their behavior."
+      }
+     }
+    }
+   ],
+   "wire_sha256": [
+    "af14c662ee774c1a2c297a770feeab96357e3e388cef0f9c87410f0e20a96894"
+   ],
+   "cache_keys": [
+    [
+     "ab9cfcdaeb7bad7ad89f7d705db24a9a13761763a0b3216e423e7872346e4fb8",
+     "51b254a292a26a6aa016dee9b16d4f2fe0a59406f69ca2d3cfad4b9e8ef0973b"
+    ]
+   ]
+  },
+  "export_python": {
+   "bodies": [],
+   "wire_sha256": [],
+   "cache_keys": []
+  },
+  "export_diff": {
+   "bodies": [],
+   "wire_sha256": [],
+   "cache_keys": []
+  },
+  "estimate_line": {
+   "bodies": [],
+   "wire_sha256": [],
+   "cache_keys": [],
+   "estimate": {
+    "records": 4,
+    "estimated_calls": 3,
+    "input_bytes_plus_overhead": 3518
+   }
+  },
+  "estimate_diff": {
+   "bodies": [],
+   "wire_sha256": [],
+   "cache_keys": [],
+   "estimate": {
+    "records": 1,
+    "estimated_calls": 1,
+    "input_bytes_plus_overhead": 1584
+   }
+  },
+  "estimate_python": {
+   "bodies": [],
+   "wire_sha256": [],
+   "cache_keys": [],
+   "estimate": {
+    "records": 2,
+    "estimated_calls": 2,
+    "input_bytes_plus_overhead": 2403
+   }
+  }
+ }
+}

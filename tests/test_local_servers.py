@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import httpx
 import pytest
 
-from jevkit_runtime import AnswerStore, Client, JevFatal, resolve
+from jevkit_runtime import AnswerStore, Client, JevFatal, Noul, resolve
 from jgrep.cli import main
 from jgrep.core import PROVIDERS
 from test_cli import env, jgrep, write  # noqa: F401  (env is the isolation fixture)
@@ -156,7 +156,7 @@ def test_joint_cache_preserves_slot_identity_and_question_order(tmp_path):
     async def exercise():
         store = AnswerStore(tmp_path / "answers.sqlite")
         client = Client(resolve(PROVIDERS, "diffusiongemma"), store=store, transport=httpx.MockTransport(answer))
-        q = {"type": "noul", "instructions": "same description"}
+        q = Noul("same description")
         original = {"first": q, "second": q}
         try:
             first = await client.ask("state", original)

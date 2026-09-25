@@ -16,7 +16,7 @@ from test_cli import Fake, env, jgrep, write
 
 @pytest.mark.parametrize("flag,value", [
     ("-p", "nan"), ("-p", "inf"), ("-p", "-0.1"), ("-p", "1.1"),
-    ("--budget", "nan"), ("--budget", "inf"), ("--budget", "-1"),
+    ("--budget", "nan"), ("--budget", "inf"), ("--budget", "-1"), ("--budget", "lots"),
     ("--timeout", "nan"), ("--timeout", "inf"), ("--timeout", "0"), ("--timeout", "-1"),
     ("--max-chars", "0"), ("--max-chars", "-1"), ("--chunks", "0"), ("--chunks", "-1"),
 ])
@@ -24,16 +24,16 @@ def test_numeric_validation_precedes_client_setup(monkeypatch, flag, value):
     def no_backend(*_, **__):
         pytest.fail("invalid options must not create a client")
 
-    monkeypatch.setattr(cli, "resolve", no_backend)
+    monkeypatch.setattr(cli, "runtime_from_args", no_backend)
     code, out, err, fake = jgrep(["alpha", f"{flag}={value}"])
     assert code == 2 and flag in err and not out and not fake.bodies
 
 
 @pytest.mark.parametrize("value", ["nan", "inf", "-1"])
 def test_budget_environment_rejects_nonfinite_and_negative_values(monkeypatch, value):
-    monkeypatch.setenv("JGREP_BUDGET", value)
+    monkeypatch.setenv("JEV_BUDGET", value)
     code, _, err, fake = jgrep(["alpha"])
-    assert code == 2 and "JGREP_BUDGET" in err and not fake.bodies
+    assert code == 2 and "JEV_BUDGET" in err and not fake.bodies
 
 
 def test_read_failure_reports_error_and_continues_next_file(monkeypatch, tmp_path):
@@ -63,7 +63,7 @@ def test_unexpected_reader_failure_always_signals_eof(monkeypatch):
     monkeypatch.setattr(cli, "records", broken)
 
     async def exercise():
-        args = cli.parser().parse_args(["--budget", "0"])
+        args = cli.parser().parse_args(["--budget", "none"])
         out, err = io.StringIO(), io.StringIO()
         backend = Backend("openrouter", "https://fixture.invalid", "v1", key="test")
         jev = Client(backend, transport=httpx.MockTransport(Fake()))

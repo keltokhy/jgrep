@@ -53,7 +53,7 @@ jgrep "a stack trace" build.log      # picked automatically when it is the only 
 ```
 
 Requests are sent as they would be to TypeSafe, so the gateway sees the same `{model, state,
-questions}` body. Ask for a model the gateway knows with `--model`; the default is `jev-latest`.
+questions}` body. Ask for a model the gateway knows with `--model`; the default is `jev-1.13.0`.
 `--stats` prices gateway calls at TypeSafe's list price, which may not be what the gateway bills.
 
 ### Local servers (experimental)
@@ -113,8 +113,9 @@ jgrep --chunks 8000 --json "describes an identification strategy" paper.txt
 | `--max-chars N` | Maximum characters judged per ordinary record; default 8000. Truncation produces a warning. |
 | `--unordered` | Print matches as answers arrive. |
 | `-j N` | Calls in flight. Default 32. |
-| `--budget DOLLARS` | Stop once this much is spent. Default 1.00, or `$JGREP_BUDGET`; 0 for no limit. |
+| `--budget DOLLARS` | Send no request that would take spending past this. Default 1.00, or `$JEV_BUDGET`; `none` for no limit, 0 to answer only from the cache. |
 | `--timeout SECONDS` | Give up on a line after this long, retries included. Default 15. |
+| `--record FILE` | Write the run's record: the models that answered, each question as asked, calls, tokens, cost and the budget. |
 | `--no-cache`, `--api`, `--model`, `--stats` | See `jgrep --help`. |
 
 Exit status follows grep: 0 if anything matched, 1 if nothing did, 2 on error.
@@ -374,18 +375,19 @@ read text, not PDF or Word formats.
 A call bills roughly 270 tokens of fixed overhead plus the line and the description, so a
 typical line costs about 300 tokens, or $0.0000126 at $0.042 per million. A million lines is
 about $13. Blank lines, repeated lines and anything answered before are free: answers are
-cached in `~/.cache/jev/answers.sqlite`, keyed on the provider, endpoint, exact model, judged text
-and description. Changing gateways cannot reuse another endpoint's answers. Older cache entries
-without provider/endpoint identity are not reused, so the first rerun may make fresh calls.
+cached in `~/.cache/jev/answers.v3.sqlite`, keyed on the provider, endpoint, exact model, judged
+text and description. Changing gateways cannot reuse another endpoint's answers.
 Extra `-e` descriptions add about 27 tokens each and no time. `-C N` sends 2N+1 lines in
 place of one, so `-C 2` costs roughly three times as much per line once the fixed overhead is
 counted. `-W` adds the enclosing function, up to `--max-chars` characters, to each hunk that has
 one; `--estimate` with the same options shows the difference before any call is made.
 
 jgrep stops at `--budget`, one dollar by default, so a stray `jgrep pattern huge.log` cannot
-run up a bill. A dollar is about 80,000 lines. A stopped run loses nothing: rerun with a higher
-budget and everything already judged comes from the cache. For a long-lived `tail -f` monitor,
-set your own default once with `export JGREP_BUDGET=20`, or `0` for no limit. With `--stats`, or
+run up a bill. Each request sets aside its estimated price before it is sent, so requests in
+flight together cannot overshoot; answers already paid for are still printed. A dollar is about
+80,000 lines. A stopped run loses nothing: rerun with a higher budget and everything already judged
+comes from the cache. For a long-lived `tail -f` monitor, set your own default once with
+`export JEV_BUDGET=20`, or `none` for no limit; it applies to every JevKit tool. With `--stats`, or
 whenever stderr is a terminal, it prints what the run cost:
 
 ```
@@ -478,8 +480,9 @@ Things to know:
 - Jev is close to deterministic, not exactly so. Asking 150 questions three times without the
   cache gave identical probabilities for 128; the rest moved by up to 0.03 and no decision
   flipped. The cache makes reruns exact.
-- The default model ID is an alias for the latest Jev. For results that must reproduce, pin
-  one with `--model` (for example `typesafe/jev-1.13` on OpenRouter).
+- The model is pinned to a Jev release (`jev-1.13.0`, `typesafe/jev-1.13` on OpenRouter), so
+  cached answers never mix versions. `--model jev-latest` asks for the newest instead, and jgrep
+  warns if one requested model was answered by more than one.
 - Text in the input can try to steer the answer. Do not use jgrep as a security boundary.
 
 ## Development
@@ -491,9 +494,10 @@ uv run python bench/accuracy.py prepare && uv run python bench/accuracy.py spam 
 ```
 
 `src/jgrep/inputs.py` handles file discovery, structured records, and document passages.
-`src/jgrep/core.py` names the providers jgrep offers. The client behind them (API backends,
-retries inside a time budget, the cache, in-flight deduplication and the cost meter) is the shared
-runtime described below, which [jlink](https://github.com/keltokhy/jlink) also uses to link
+`src/jgrep/core.py` names the providers jgrep offers. Everything between a question and its
+answer (API backends, retries inside a time budget, the cache, in-flight deduplication, the
+budget, the streaming engine, the shared flags and the run record) is the shared runtime described
+below, which [jlink](https://github.com/keltokhy/jlink) also uses to link
 records across datasets with the same model.
 
 MIT license.
@@ -513,7 +517,7 @@ unaffected by this source migration.
 
 From the core checkout, `python scripts/dev.py setup`, `check`, and `wheel-check`
 set up and validate all five consumers in separate environments.
-CI checks out core tag `v0.3.2`. Prompts, question construction, and budget policies
-remain in this repository; answer identity, the answer store, transport, and metering
-are the runtime's. Runtime 0.2 keys and stores answers differently from 0.1, so a cache
-written by an earlier version is re-asked once after upgrading.
+Prompts, question construction and output remain in this repository; answer identity, the
+answer store, transport, metering, the budget and the reading pipeline are the runtime's.
+Runtime 0.4 keeps answers in `answers.v3.sqlite`, so the first run after upgrading re-asks once,
+while tools still on 0.3 keep their own `answers.sqlite`.
