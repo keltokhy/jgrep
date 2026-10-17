@@ -22,7 +22,7 @@ import time
 from collections import deque
 from dataclasses import replace
 
-from jevkit_runtime import Client, JevBudgetExceeded, JevError, JevFatal, Noul, Run
+from jevkit_runtime import Client, Image, JevBudgetExceeded, JevError, JevFatal, Noul, Run
 from jevkit_runtime.cli import (
     Parser,
     UsageError,
@@ -66,12 +66,26 @@ def question(description: str, context: bool = False, diff: bool = False, functi
     return Noul(f'The text fits this description: "{description}"')
 
 
+def image_question(description: str) -> Noul:
+    return Noul(f'The picture in `image` fits this description: "{description}"')
+
+
 def ask(descriptions: list[str], args) -> tuple[dict, dict]:
-    """Plain questions, plus context questions keyed by whether the hunk has a commit id."""
+    """Plain questions, plus the other sets a record may need: context questions keyed by whether the
+    hunk has a commit id, and under "image" the questions for a picture."""
     plain = {f"d{i}": question(d, bool(args.context), args.diff) for i, d in enumerate(descriptions)}
     context = {committed: {f"d{i}": question(d, diff=True, function=True, working_tree=not committed)
                           for i, d in enumerate(descriptions)} for committed in (False, True)}
+    context["image"] = {f"d{i}": image_question(d) for i, d in enumerate(descriptions)}
     return plain, context
+
+
+def asked_for(rec: Record, questions: dict, others: dict) -> dict:
+    """The questions a record is asked: a picture's, a hunk-with-function's, or the plain ones."""
+    if rec.image:
+        return others["image"]
+    # A hunk without context is asked exactly what plain --diff asks, and shares its cache.
+    return others[bool(rec.unit["commit"])] if rec.context else questions
 
 
 def parser() -> argparse.ArgumentParser:
@@ -83,7 +97,8 @@ def parser() -> argparse.ArgumentParser:
                '  tail -f app.log | jgrep "a user is getting frustrated"\n'
                '  jgrep -o "about heat or hot water" complaints.txt | sort -rn | head\n'
                '  jgrep -v -p 0.2 "spam" inbox.txt\n'
-               '  jgrep --whole "uses a bunching estimator" abstracts/*.txt\n\n'
+               '  jgrep --whole "uses a bunching estimator" abstracts/*.txt\n'
+               '  jgrep "a cracked phone screen" photos/*.jpg\n\n'
                + providers_help(PROVIDERS))
     ap.add_argument("args", nargs="*", help=argparse.SUPPRESS)
     ap.add_argument("-e", dest="descriptions", action="append", metavar="DESCRIPTION",
@@ -121,6 +136,9 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--field", metavar="NAME", help="JSON field (dotted paths supported) or CSV column to judge")
     ap.add_argument("--para", action="store_true", help="judge paragraphs (separated by blank lines), not lines")
     ap.add_argument("--whole", action="store_true", help="judge each file as a whole and print matching file names")
+    ap.add_argument("--images", action="store_true",
+                    help="read image paths, one per line, from text inputs, and include images found by -r "
+                         "(PNG and JPEG files named on the command line are always judged as images)")
     ap.add_argument("--chunks", type=int, metavar="N", help="search complete text files in passages of N characters, with source locations")
     ap.add_argument("--overlap", type=int, metavar="N", help="overlap between passages (default: smaller of 200 characters and one quarter of --chunks)")
     ap.add_argument("-C", "--context", type=int, default=0, metavar="N",
@@ -172,8 +190,11 @@ def marked(text: str, prefix: str) -> str:
     return "\n".join(prefix + line for line in text.split("\n"))
 
 
-def state(rec: Record, args) -> str:
-    """What Jev is shown: the record on its own, marked with `>` inside its context, or before its function."""
+def state(rec: Record, args) -> str | dict:
+    """What Jev is shown: the record on its own, marked with `>` inside its context, or before its function;
+    a picture as itself."""
+    if rec.image:
+        return {"image": Image(rec.image)}
     if rec.context:  # a complete hunk, then the function around it; each is held to --max-chars on its own
         return rec.text + ("" if rec.text.endswith("\n") else "\n") + "\n" + rec.context
     if not args.context:
@@ -189,7 +210,9 @@ def render(rec: Record, p: float, ps: list[float], args, show_file: bool) -> str
         obj = {"file": rec.file, "line": rec.lineno, "p": round(p, 4)}
         if len(ps) > 1:
             obj["ps"] = [round(x, 4) for x in ps]
-        if not (args.whole or args.files_with_matches):
+        if rec.image:
+            obj["image"] = True
+        elif not (args.whole or args.files_with_matches):
             obj["text"] = rec.original if rec.original is not None else rec.text
             if rec.data is not None:
                 obj["record"] = rec.data
@@ -201,7 +224,7 @@ def render(rec: Record, p: float, ps: list[float], args, show_file: bool) -> str
             if rec.start is not None:
                 obj.update(start=rec.start, end=rec.end)
         return json.dumps(obj, ensure_ascii=False)
-    if args.whole or args.files_with_matches:
+    if args.whole or args.files_with_matches or rec.image:
         body = rec.file
     else:
         text = rec.original if rec.original is not None else rec.text
@@ -266,8 +289,7 @@ async def scan(args, descriptions: list[str], files: list[str], jev: Client, out
             s["truncated"] += 1
         if not rec.text.strip():
             return 0.0, [0.0] * len(questions)
-        # A hunk without context is asked exactly what plain --diff asks, and shares its cache.
-        asked = function_questions[bool(rec.unit["commit"])] if rec.context else questions
+        asked = asked_for(rec, questions, function_questions)
         answers = await jev.ask(state(rec, args), asked)
         ps = [q.value(answers[qid]) for qid, q in asked.items()]
         return min(ps) if args.all else max(ps), ps
@@ -368,6 +390,9 @@ def main(argv: list[str] | None = None, *, transport=None, out=None, err=None) -
                                       or args.max_count is not None or args.prob or args.invert_match),
          "--emit-records does not accept descriptions or match/output filters"),
         (not (args.jsonl or args.csv) or bool(args.field), "--jsonl and --csv require --field"),
+        (not args.images or not (args.jsonl or args.csv or args.diff or args.functions or args.para
+                                 or args.whole or args.chunks or args.context),
+         "--images cannot be combined with --jsonl, --csv, --diff, --functions, --para, --whole, --chunks or -C"),
         (not args.field or args.jsonl or args.csv, "--field requires --jsonl or --csv"),
         (not (args.jsonl or args.csv) or not (args.para or args.whole or args.chunks),
          "structured input cannot be combined with --para, --whole or --chunks"),

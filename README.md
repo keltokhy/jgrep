@@ -370,6 +370,26 @@ Chunk mode applies to plain text files and cannot be combined with structured in
 `--para`, `--whole`, or `-C`; use overlap to retain text across passage boundaries. These modes
 read text, not PDF or Word formats.
 
+## Images (experimental)
+
+A PNG or JPEG file named on the command line is judged as a picture, and a match prints its name:
+
+```console
+$ jgrep -o "a red circle" circle.jpg square.jpg
+1.000	circle.jpg
+```
+
+`--images` reads image paths from text input, one per line (`find shots -name '*.png' | jgrep
+--images "a person at the door"`), and lets `-r` include the images it finds; without it a recursive
+search skips them. Images mix with text files in one run, and `--estimate`, `--budget`, the cache and
+`--record` work as they do for text.
+
+Each picture is turned upright, fitted to 1568 pixels on its longest side and sent to Jev, which
+bills it as input tokens: about 2,300 for a 1024 x 768 image and 6,300 at full size, roughly
+$0.0001 to $0.0003 a picture. TypeSafe's API, OpenRouter and a gateway read images; the local servers
+do not. Install the image support with `uv tool install 'jev-grep[images]'`. TypeSafe calls images
+experimental, so the format and accuracy may change.
+
 ## Cost
 
 A call bills roughly 270 tokens of fixed overhead plus the line and the description, so a
