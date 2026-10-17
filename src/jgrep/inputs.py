@@ -15,6 +15,8 @@ from pathspec import GitIgnoreSpec
 STDIN = "(standard input)"
 # Extensions --functions can infer. Recursive searches skip other files unless --lang is given.
 FUNCTION_LANGUAGES = {".py": "python", ".go": "go", ".c": "c", ".h": "c"}
+# The first bytes of the image files Jev reads: PNG and JPEG.
+IMAGE_SIGNATURES = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff")
 
 
 @dataclass
@@ -35,6 +37,7 @@ class Record:
     end_line: int | None = None
     unit: dict | None = None
     context: str | None = None
+    image: str | None = None  # the path of the image this record is, judged as a picture rather than text
 
 
 def discover(files: list[str], args) -> tuple[list[str], list[str]]:
@@ -251,13 +254,40 @@ def plain_records(f, label: str, args, stop: threading.Event):
         yield Record(0, label, start, "\n".join(para))
 
 
+def is_image(name: str) -> bool:
+    """A PNG or JPEG file, by its first bytes rather than its name."""
+    try:
+        with Path(name).open("rb") as f:
+            return f.read(8).startswith(IMAGE_SIGNATURES)
+    except OSError:
+        return False
+
+
+def image_paths(f, stop: threading.Event):
+    """With --images, a text input lists image files, one path per line."""
+    for lineno, raw in enumerate(f, 1):
+        if stop.is_set():
+            return
+        path = raw.strip()
+        if path:
+            yield Record(0, path, lineno, path, image=path)
+
+
 def records(files: list[str], args, stop: threading.Event):
-    """Yield records or error strings, continuing to the next file after read errors."""
+    """Yield records or error strings, continuing to the next file after read errors.
+
+    An image file named on the command line (or found by -r with --images) is one record, judged as a
+    picture; with --images, any other input lists image paths.
+    """
     seq = 0
     for input_id, name in enumerate(files or ["-"]):
         if stop.is_set():
             return
         label = STDIN if name == "-" else name
+        if name != "-" and (args.images or not args.recursive) and is_image(name):
+            yield Record(seq, name, 1, name, input_id=input_id, image=name)
+            seq += 1
+            continue
         try:
             # A private reader avoids sys.stdin's lock during early process exit.
             f = (open(0, "r", encoding="utf-8", errors="replace", newline="", closefd=False) if name == "-"
@@ -267,7 +297,9 @@ def records(files: list[str], args, stop: threading.Event):
                     continue  # binary files discovered during a directory search
                 if args.functions and args.recursive and not args.lang and Path(name).suffix not in FUNCTION_LANGUAGES:
                     continue
-                if args.jsonl:
+                if args.images:
+                    stream = image_paths(f, stop)
+                elif args.jsonl:
                     stream = json_records(f, label, args.field, stop)
                 elif args.csv:
                     stream = csv_records(f, label, args.field, stop)

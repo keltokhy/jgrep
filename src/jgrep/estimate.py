@@ -8,6 +8,7 @@ import sqlite3
 
 from jevkit_runtime import AnswerStore, Budget, Client, Settings, estimate_tokens, request_body, resolve
 
+from .cli import asked_for
 from .core import PROVIDERS
 from .diff_context import describe, summary, tally
 
@@ -32,7 +33,7 @@ def estimate(stream, args, questions, make_state, function_questions, budget: Bu
               "price_per_million_input_tokens_usd": backend.price_per_mtok,
               "notes": ["No API calls. Reads input to EOF; do not use with an endless stream.",
                         "Estimates assume successful calls and cache reuse; retries and concurrent misses can cost more.",
-                        "Token estimate: UTF-8 request bytes / 4 plus 270 per request. Byte estimate adds 1024 overhead.",
+                        "Token estimate: UTF-8 request bytes / 4 plus 270 per request, plus each image's estimated tokens. Byte estimate adds 1024 overhead.",
                         "Both use the configured input-token list price, not a provider quote or billing cap.",
                         "Scans all records regardless of -p, -q, -l, -m or the dollar budget."]}
     contexts: dict = {}
@@ -49,8 +50,8 @@ def estimate(stream, args, questions, make_state, function_questions, budget: Bu
             if not (args.chunks or args.diff or args.functions) and any(
                     len(t) > args.max_chars for t in (rec.text, *rec.before, *rec.after)):
                 result["truncated_records"] += 1
-            # The enclosing function is part of the request, so it is part of the price.
-            asked = function_questions[bool(rec.unit["commit"])] if rec.context else questions
+            # The enclosing function, or the picture, is part of the request, so it is part of the price.
+            asked = asked_for(rec, questions, function_questions)
             plan = client.plan(make_state(rec, args), asked)
             if plan.complete:
                 result["cached_records"] += 1

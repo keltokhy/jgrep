@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Images, experimental: a PNG or JPEG file named on the command line is judged as a picture and a
+  match prints its name. `--images` reads image paths from text input and lets `-r` include images.
+  Needs `jevkit-runtime` 0.4.3 and the new `images` extra (`jev-grep[images]`).
+
 ## 0.6.0
 
 On `jevkit-runtime` 0.4 ([jevkit-core#14](https://github.com/keltokhy/jevkit-core/issues/14)).
